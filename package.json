@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@nestjs/config": "^4.0.4",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "*",
     "@nestjs/passport": "^11.0.5",
@@ -8,6 +9,8 @@
     "@nestjs/testing": "^11.1.18",
     "@types/passport-jwt": "^4.0.1",
     "class-validator": "^0.15.1",
+    "dotenv": "^17.4.1",
+    "nest": "^0.1.6",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "supertest": "^7.2.2",
@@ -19,13 +22,15 @@
   "main": "index.js",
   "scripts": {
     "dev": "nest start --watch",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "nest build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@nestjs/cli": "^11.0.19",
     "@types/jest": "^30.0.0"
   }
 }
