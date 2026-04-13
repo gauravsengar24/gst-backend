@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './module/auth/auth.module';
@@ -11,7 +13,26 @@ import { EventsModule } from './module/events/events.module';
 import { AdminModule } from './module/admin/admin.module';
 
 @Module({
-  imports: [AuthModule, AdminModule, EventsModule, CertificatesModule, CandidatesModule, BlockchainModule, MetadataModule, DashboardModule],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    MongooseModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        uri: configService.get<string>('MONGODB_URI'),
+      }),
+      inject: [ConfigService],
+    }),
+    AuthModule,
+    AdminModule,
+    EventsModule,
+    CertificatesModule,
+    CandidatesModule,
+    BlockchainModule,
+    MetadataModule,
+    DashboardModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
