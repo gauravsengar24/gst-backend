@@ -11,7 +11,7 @@ COPY package.json .
 COPY package-lock.json .
 
 ENV HUSKY=0
-
+RUN npm install source-map
 RUN npm install
 
 RUN apt-get update && \

@@ -23,7 +23,8 @@
   "scripts": {
     "dev": "nest start --watch",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "nest build"
+    "build": "nest build",
+    "prod": "docker compose up -d --build mst-certificate-"
   },
   "keywords": [],
   "author": "",
