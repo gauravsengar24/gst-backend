@@ -9,10 +9,9 @@ import { CandidatesModule } from './module/candidates/candidates.module';
 import { CertificatesModule } from './module/certificates/certificates.module';
 import { EventsModule } from './module/events/events.module';
 import { AdminModule } from './module/admin/admin.module';
-import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [AuthModule, AdminModule, EventsModule, CertificatesModule, CandidatesModule, BlockchainModule, MetadataModule, DashboardModule, ConfigModule],
+  imports: [AuthModule, AdminModule, EventsModule, CertificatesModule, CandidatesModule, BlockchainModule, MetadataModule, DashboardModule],
   controllers: [AppController],
   providers: [AppService],
 })
