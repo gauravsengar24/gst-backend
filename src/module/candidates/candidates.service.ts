@@ -12,15 +12,15 @@ export class CandidatesService {
     return `This action returns all candidates`;
   }
 
-  findOne(id: number) {
+  findOne(id: string) {
     return `This action returns a #${id} candidate`;
   }
 
-  update(id: number, updateCandidateDto: UpdateCandidateDto) {
+  update(id: string, updateCandidateDto: UpdateCandidateDto) {
     return `This action updates a #${id} candidate`;
   }
 
-  remove(id: number) {
+  remove(id: string) {
     return `This action removes a #${id} candidate`;
   }
 }
