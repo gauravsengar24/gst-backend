@@ -23,9 +23,21 @@ export class AuthService {
     }
 
     const payload = { email: user.email, sub: user._id, role: user.role };
+    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: process.env.REFRESH_SECRET_KEY,
+      expiresIn: '7d'
+    });
+
+    await this.userModel.findByIdAndUpdate(user._id, {
+      refreshToken,
+      refreshTokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    });
+
     return {
       message: 'Login successful',
-      access_token: this.jwtService.sign(payload),
+      access_token: accessToken,
+      refresh_token: refreshToken,
       user: {
         email: user.email,
         role: user.role,
@@ -57,5 +69,54 @@ export class AuthService {
 
   remove(id: string) {
     return this.userModel.findByIdAndDelete(id).exec();
+  }
+
+  async refreshToken(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: process.env.REFRESH_SECRET_KEY,
+      });
+      const user = await this.userModel.findById(payload.sub);
+
+      if (!user || user.refreshToken !== refreshToken) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      if (user.refreshTokenExpiresAt && user.refreshTokenExpiresAt < new Date()) {
+        throw new UnauthorizedException('Refresh token expired');
+      }
+
+      const newPayload = { email: payload.email, sub: payload.sub, role: payload.role };
+      const newAccessToken = this.jwtService.sign(newPayload);
+
+      return {
+        message: 'Token refreshed successfully',
+        access_token: newAccessToken,
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async revokeRefreshToken(userId: string) {
+    await this.userModel.findByIdAndUpdate(userId, {
+      $unset: { refreshToken: 1, refreshTokenExpiresAt: 1 }
+    });
+  }
+
+  async logout(token: string) {
+    try {
+      const payload = this.jwtService.decode(token) as any;
+      if (payload && payload.sub) {
+        await this.revokeRefreshToken(payload.sub);
+      }
+    } catch (error) {
+      console.log('Error during logout:', error);
+    }
+
+    return {
+      message: 'Logout successful',
+      success: true
+    };
   }
 }

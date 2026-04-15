@@ -43,6 +43,7 @@ A NestJS-based backend API for managing digital certificates, events, and user a
    ```
    MONGODB_URI=mongodb://localhost:27017/certificates
    JWT_SECRET=your-secret-key
+   REFRESH_SECRET_KEY=your-refresh-secret-key
    ```
 
 4. Start the development server:
@@ -53,7 +54,9 @@ A NestJS-based backend API for managing digital certificates, events, and user a
 ## API Endpoints
 
 ### Authentication
-- `POST /auth/login` - User login
+- `POST /auth/login` - User login (returns access_token and refresh_token)
+- `POST /auth/logout` - User logout (revokes refresh tokens)
+- `POST /auth/refresh` - Refresh access token using refresh_token
 - `POST /auth` - Register new user (requires auth)
 
 ### Certificates
@@ -98,10 +101,36 @@ src/
     └── metadata/
 ```
 
-## Development
+## Testing Refresh Token Flow
 
-- Use `npm run dev` for development with hot reload
-- All endpoints are protected with JWT authentication except login
-- Certificate issue dates are auto-generated if not provided
-- Passwords are excluded from user responses for security</content>
+1. **Login** to get access_token and refresh_token:
+   ```bash
+   POST /auth/login
+   {
+     "email": "user@example.com",
+     "password": "password"
+   }
+   ```
+
+2. **Use access_token** for API calls (expires in 10 minutes)
+
+3. **Refresh token** when access_token expires:
+   ```bash
+   POST /auth/refresh
+   {
+     "refresh_token": "your_refresh_token_here"
+   }
+   ```
+
+4. **Logout** to invalidate refresh token:
+   ```bash
+   POST /auth/logout
+   # Requires valid access_token in Authorization header
+   ```
+
+**Security Notes:**
+- Access tokens expire quickly (10 minutes) for security
+- Refresh tokens are stored securely in user documents
+- Logout completely removes refresh tokens from database
+- Attempting to refresh with invalid/expired tokens returns 401</content>
 <parameter name="filePath">d:\mst\cert-backend\README.md
