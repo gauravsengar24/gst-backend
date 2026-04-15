@@ -19,14 +19,7 @@ import { User, UserSchema } from './schemas/user.schema';
       }),
       inject: [ConfigService],
     }),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('REFRESH_SECRET_KEY'),
-        signOptions: { expiresIn: '7d' },
-      }),
-      inject: [ConfigService],
-    }),
+
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema }
     ]),

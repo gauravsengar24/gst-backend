@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { CertificatesService } from './certificates.service';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('Certificates')
 @Controller('certificates')
@@ -14,15 +15,21 @@ export class CertificatesController {
   @ApiBody({ type: CreateCertificateDto, description: 'Certificate data to create' })
   @ApiResponse({ status: 201, description: 'Certificate created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid certificate data' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
   create(@Body() createCertificateDto: CreateCertificateDto) {
     return this.certificatesService.create(createCertificateDto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all certificates' })
-  @ApiResponse({ status: 200, description: 'List of all certificates' })
-  findAll() {
-    return this.certificatesService.findAll();
+  @ApiOperation({ summary: 'Get all certificates with pagination and search' })
+  @ApiResponse({ status: 200, description: 'List of certificates' })
+  findAll(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('search') search?: string
+  ) {
+    return this.certificatesService.findAll(parseInt(page), parseInt(limit), search);
   }
 
   @Get(':id')

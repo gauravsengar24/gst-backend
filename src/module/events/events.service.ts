@@ -20,8 +20,34 @@ export class EventsService {
     };
   }
 
-  findAll() {
-    return this.eventModel.find().exec();
+  async findAll(page: number = 1, limit: number = 10, search?: string) {
+    const skip = (page - 1) * limit;
+    const query: any = {};
+
+    // Add search filter if provided
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { place: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.eventModel.find(query).skip(skip).limit(limit).exec(),
+      this.eventModel.countDocuments(query)
+    ]);
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    };
   }
 
   findOne(id: string) {

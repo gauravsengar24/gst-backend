@@ -14,9 +14,9 @@ A NestJS-based backend API for managing digital certificates, events, and user a
 
 ## Features
 
-- **Authentication & Authorization**: JWT-based auth with role-based access control
+- **Authentication & Authorization**: JWT-based auth with cookie support and role-based access control
 - **Certificate Management**: Create, read, update, and delete certificates with auto-generated issue dates
-- **Event Management**: Full CRUD operations for events
+- **Event Management**: Full CRUD operations for events with pagination and search
 - **User Management**: Admin and regular user roles
 - **MongoDB Integration**: Document-based storage with Mongoose ODM
 - **API Documentation**: Swagger/OpenAPI documentation
@@ -42,8 +42,8 @@ A NestJS-based backend API for managing digital certificates, events, and user a
 3. Set up environment variables in `.env`:
    ```
    MONGODB_URI=mongodb://localhost:27017/certificates
-   JWT_SECRET=your-secret-key
-   REFRESH_SECRET_KEY=your-refresh-secret-key
+   SECRET_KEY=your-jwt-secret-key
+   PORT=3000
    ```
 
 4. Start the development server:
@@ -54,20 +54,23 @@ A NestJS-based backend API for managing digital certificates, events, and user a
 ## API Endpoints
 
 ### Authentication
-- `POST /auth/login` - User login (returns access_token and refresh_token)
-- `POST /auth/logout` - User logout (revokes refresh tokens)
-- `POST /auth/refresh` - Refresh access token using refresh_token
+- `POST /auth/login` - User login (sets access_token cookie)
+- `POST /auth/logout` - User logout (clears cookie)
 - `POST /auth` - Register new user (requires auth)
+- `GET /auth` - Get all users (requires auth)
+- `GET /auth/:id` - Get user by ID (requires auth)
+- `PATCH /auth/:id` - Update user (requires auth)
+- `DELETE /auth/:id` - Delete user (requires auth)
 
 ### Certificates
-- `GET /certificates` - Get all certificates
+- `GET /certificates?page=1&limit=10&search=keyword` - Get all certificates with pagination and search
 - `POST /certificates` - Create new certificate
 - `GET /certificates/:id` - Get certificate by ID
 - `PATCH /certificates/:id` - Update certificate
 - `DELETE /certificates/:id` - Delete certificate
 
 ### Events
-- `GET /events` - Get all events
+- `GET /events?page=1&limit=10&search=keyword` - Get all events with pagination and search
 - `POST /events/create` - Create new event
 - `GET /events/:id` - Get event by ID
 - `PATCH /events/:id` - Update event
@@ -81,6 +84,21 @@ A NestJS-based backend API for managing digital certificates, events, and user a
 ## API Documentation
 
 Once the server is running, visit `http://localhost:3000/api` for Swagger documentation.
+
+## Authentication
+
+The API uses JWT tokens stored in HTTP-only cookies for authentication.
+
+### Login
+Send a POST request to `/auth/login` with email and password. The server will set an `access_token` cookie that expires in 10 minutes.
+
+### Protected Routes
+Include the `access_token` cookie in requests to protected endpoints. The JWT strategy automatically extracts the token from either:
+- Authorization header: `Bearer <token>`
+- Cookie: `access_token=<token>`
+
+### Logout
+Send a POST request to `/auth/logout` to clear the authentication cookie.
 
 ## Project Structure
 
@@ -101,36 +119,12 @@ src/
     └── metadata/
 ```
 
-## Testing Refresh Token Flow
+## Development
 
-1. **Login** to get access_token and refresh_token:
-   ```bash
-   POST /auth/login
-   {
-     "email": "user@example.com",
-     "password": "password"
-   }
-   ```
-
-2. **Use access_token** for API calls (expires in 10 minutes)
-
-3. **Refresh token** when access_token expires:
-   ```bash
-   POST /auth/refresh
-   {
-     "refresh_token": "your_refresh_token_here"
-   }
-   ```
-
-4. **Logout** to invalidate refresh token:
-   ```bash
-   POST /auth/logout
-   # Requires valid access_token in Authorization header
-   ```
-
-**Security Notes:**
-- Access tokens expire quickly (10 minutes) for security
-- Refresh tokens are stored securely in user documents
-- Logout completely removes refresh tokens from database
-- Attempting to refresh with invalid/expired tokens returns 401</content>
+- Use `npm run dev` for development with hot reload
+- All endpoints are protected with JWT authentication except login
+- Certificate issue dates are auto-generated if not provided
+- Passwords are excluded from user responses for security
+- **Access Tokens**: Expire in 10 minutes for security
+- Pagination and search available on GET /events and GET /certificates</content>
 <parameter name="filePath">d:\mst\cert-backend\README.md

@@ -16,8 +16,33 @@ export class CertificatesService {
     return createdCertificate.save();
   }
 
-  findAll() {
-    return this.certificateModel.find().exec();
+  async findAll(page: number = 1, limit: number = 10, search?: string) {
+    const skip = (page - 1) * limit;
+    const query: any = {};
+
+    if (search) {
+      query.$or = [
+        { recipientName: { $regex: search, $options: 'i' } },
+        { title: { $regex: search, $options: 'i' } },
+        { issuer: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.certificateModel.find(query).skip(skip).limit(limit).exec(),
+      this.certificateModel.countDocuments(query)
+    ]);
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    };
   }
 
   findOne(id: string) {
