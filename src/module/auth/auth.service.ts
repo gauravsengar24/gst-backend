@@ -6,6 +6,7 @@ import { UpdateAuthDto } from './dto/update-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserDocument } from './schemas/user.schema';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -18,7 +19,9 @@ export class AuthService {
     const { email, password } = loginDto;
     const user = await this.userModel.findOne({ email });
 
-    if (!user || user.password !== password) {
+    const isPasswordValid = user ? await bcrypt.compare(password, user.password) : false;
+
+    if (!user || !isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -35,7 +38,11 @@ export class AuthService {
   }
 
   async register(createUserDto: any) {
-    const createdUser = new this.userModel(createUserDto);
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const createdUser = new this.userModel({
+      ...createUserDto,
+      password: hashedPassword,
+    });
     const savedUser = await createdUser.save();
     const userObj = savedUser.toObject() as any;
     delete userObj.password;

@@ -1,26 +1,49 @@
-import { Injectable } from '@nestjs/common';
-// import { CreateAdminDto } from './dto/create-admin.dto';
-// import { UpdateAdminDto } from './dto/update-admin.dto';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { User, UserDocument } from '../auth/schemas/user.schema';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminService {
-  // create(createAdminDto: CreateAdminDto) {
-  //   return 'This action adds a new admin';
-  // }
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+  ) {}
+
+  async changePassword(email: string, changePasswordDto: ChangePasswordDto) {
+    const { oldPassword, newPassword } = changePasswordDto;
+    const user = await this.userModel.findOne({ email });
+
+    if (!user) {
+      throw new NotFoundException(`User with email ${email} not found`);
+    }
+
+    const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Current password does not match');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    return {
+      message: 'Password changed successfully',
+      success: true,
+    };
+  }
 
   findAll() {
-    return `This action returns all admin`;
+    return this.userModel.find().select('-password').exec();
   }
 
   findOne(id: string) {
-    return `This action returns a #${id} admin`;
+    return this.userModel.findById(id).select('-password').exec();
   }
 
-  // update(id: string, updateAdminDto: UpdateAdminDto) {
-  //   return `This action updates a #${id} admin`;
-  // }
-
   remove(id: string) {
-    return `This action removes a #${id} admin`;
+    return this.userModel.findByIdAndDelete(id).exec();
   }
 }

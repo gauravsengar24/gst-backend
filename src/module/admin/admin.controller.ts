@@ -1,45 +1,47 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
-// import { CreateAdminDto } from './dto/create-admin.dto';
-// import { UpdateAdminDto } from './dto/update-admin.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('Admin')
 @Controller('admin')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  // @Post()
-  // create(@Body() createAdminDto: CreateAdminDto) {
-  //   return this.adminService.create(createAdminDto);
-  // }
+  @Patch('change-password/:email')
+  @ApiOperation({ summary: 'Change user password' })
+  @ApiParam({ name: 'email', type: 'string', description: 'User Email' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  changePassword(@Param('email') email: string, @Body() changePasswordDto: ChangePasswordDto) {
+    return this.adminService.changePassword(email, changePasswordDto);
+  }
 
   @Get()
-  @ApiOperation({ summary: 'Get all admins' })
-  @ApiResponse({ status: 200, description: 'List of all admins' })
+  @ApiOperation({ summary: 'Get all admins (users)' })
+  @ApiResponse({ status: 200, description: 'List of all users' })
   findAll() {
     return this.adminService.findAll();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get admin by ID' })
-  @ApiParam({ name: 'id', type: 'string', description: 'Admin ID' })
-  @ApiResponse({ status: 200, description: 'Admin found' })
-  @ApiResponse({ status: 404, description: 'Admin not found' })
+  @ApiOperation({ summary: 'Get user by ID' })
+  @ApiParam({ name: 'id', type: 'string', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User found' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   findOne(@Param('id') id: string) {
     return this.adminService.findOne(id);
   }
 
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateAdminDto: UpdateAdminDto) {
-  //   return this.adminService.update(+id, updateAdminDto);
-  // }
-
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete admin by ID' })
-  @ApiParam({ name: 'id', type: 'string', description: 'Admin ID' })
-  @ApiResponse({ status: 200, description: 'Admin deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Admin not found' })
+  @ApiOperation({ summary: 'Delete user by ID' })
+  @ApiParam({ name: 'id', type: 'string', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   remove(@Param('id') id: string) {
     return this.adminService.remove(id);
   }
