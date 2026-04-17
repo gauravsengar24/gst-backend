@@ -86,7 +86,6 @@ export class AuthController {
   @ApiOperation({ summary: 'User logout' })
   @ApiResponse({ status: 200, description: 'Logout successful, cookie cleared' })
   @ApiBearerAuth('access-token')
-  @UseGuards(JwtAuthGuard)
   async logout(@Res({ passthrough: true }) response: Response) {
     response.clearCookie('access_token');
     return this.authService.logout();
