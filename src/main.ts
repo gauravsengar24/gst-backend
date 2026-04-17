@@ -29,9 +29,10 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:3000',
+      'http://127.0.0.1:5500',
       'https://stackblitzstartersygkuzqpc-uupn--8080--4c73681d.local-credentialless.webcontainer.io/' // add your actual frontend
     ],
-    credentials: true,
+    credentials: true,  
   });
   await app.listen(process.env.PORT ?? 3000);
 }
