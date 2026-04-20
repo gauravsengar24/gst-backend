@@ -22,7 +22,7 @@ export class AuthController {
     response.cookie('access_token', result.access_token, {
       httpOnly: true,
       secure: true, // Set to true if using HTTPS
-      sameSite: 'lax',
+      sameSite: 'none',
       // maxAge: 10 * 60 * 1000, // 10mins
     });
     return { message: result.message, user: result.user };
