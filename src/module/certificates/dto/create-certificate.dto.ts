@@ -39,4 +39,9 @@ export class CreateCertificateDto {
   @ValidateNested({ each: true })
   @Type(() => CreateCandidateDto)
   candidates!: CreateCandidateDto[];
+
+  @ApiProperty({ example: '60d0fe4f5311236168a109ca', required: false })
+  @IsOptional()
+  @IsString()
+  eventId?: string;
 }

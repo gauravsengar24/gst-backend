@@ -20,6 +20,12 @@ export class Certificate {
   @Prop()
   description?: string;
 
+  @Prop({ required: true })
+  type!: string;
+
+  @Prop({ type: String })
+  eventId?: string;
+
   @Prop({ type: [{ name: String, email: String, walletAddress: String }] })
   candidates?: { name: string; email?: string; walletAddress: string }[];
 }
