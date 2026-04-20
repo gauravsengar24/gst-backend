@@ -33,8 +33,8 @@ export class AuthController {
   @ApiBody({ type: CreateAuthDto, description: 'User registration data' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
   @ApiResponse({ status: 400, description: 'Invalid user data' })
-  @ApiBearerAuth('access-token')
-  @UseGuards(JwtAuthGuard)
+  // @ApiBearerAuth('access-token')
+  // @UseGuards(JwtAuthGuard)
   create(@Body() createAuthDto: CreateAuthDto) {
     return this.authService.create(createAuthDto);
   }

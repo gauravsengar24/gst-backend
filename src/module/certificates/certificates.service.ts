@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
+import { CreateCandidateDto } from '../candidates/dto/create-candidate.dto';
 import { Certificate, CertificateDocument } from './schemas/certificate.schema';
 
 @Injectable()
@@ -55,5 +56,13 @@ export class CertificatesService {
 
   remove(id: string) {
     return this.certificateModel.findByIdAndDelete(id).exec();
+  }
+
+  async addCandidates(id: string, candidates: CreateCandidateDto[]) {
+    return this.certificateModel.findByIdAndUpdate(
+      id,
+      { $push: { candidates: { $each: candidates } } },
+      { new: true }
+    ).exec();
   }
 }

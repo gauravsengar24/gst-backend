@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth } 
 import { CertificatesService } from './certificates.service';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
+import { CreateCandidateDto } from '../candidates/dto/create-candidate.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('Certificates')
@@ -11,7 +12,7 @@ export class CertificatesController {
   constructor(private readonly certificatesService: CertificatesService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new certificate' })
+  @ApiOperation({ summary: 'Create a new certificate with optional candidates' })
   @ApiBody({ type: CreateCertificateDto, description: 'Certificate data to create' })
   @ApiResponse({ status: 201, description: 'Certificate created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid certificate data' })
@@ -19,6 +20,18 @@ export class CertificatesController {
   @UseGuards(JwtAuthGuard)
   create(@Body() createCertificateDto: CreateCertificateDto) {
     return this.certificatesService.create(createCertificateDto);
+  }
+
+  @Post(':id/candidates')
+  @ApiOperation({ summary: 'Add candidates to an existing certificate' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
+  @ApiBody({ type: [CreateCandidateDto], description: 'List of candidates to add' })
+  @ApiResponse({ status: 200, description: 'Candidates added successfully' })
+  @ApiResponse({ status: 404, description: 'Certificate not found' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
+  addCandidates(@Param('id') id: string, @Body() candidates: CreateCandidateDto[]) {
+    return this.certificatesService.addCandidates(id, candidates);
   }
 
   @Get()

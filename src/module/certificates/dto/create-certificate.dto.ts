@@ -1,11 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsDateString, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateCandidateDto } from '../../candidates/dto/create-candidate.dto';
 
 export class CreateCertificateDto {
-  @ApiProperty({ example: 'John Doe' })
-  @IsNotEmpty()
+  @ApiProperty({ example: 'John Doe', required: false })
+  @IsOptional()
   @IsString()
-  recipientName!: string;
+  recipientName?: string;
 
   @ApiProperty({ example: 'Participation' })
   @IsNotEmpty()
@@ -31,4 +33,10 @@ export class CreateCertificateDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiProperty({ type: [CreateCandidateDto]})
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateCandidateDto)
+  candidates!: CreateCandidateDto[];
 }

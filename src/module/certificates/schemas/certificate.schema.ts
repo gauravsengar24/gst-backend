@@ -5,8 +5,8 @@ export type CertificateDocument = Certificate & Document;
 
 @Schema({ timestamps: true })
 export class Certificate {
-  @Prop({ required: true })
-  recipientName!: string;
+  @Prop()
+  recipientName?: string;
 
   @Prop({ required: true })
   title!: string;
@@ -19,6 +19,9 @@ export class Certificate {
 
   @Prop()
   description?: string;
+
+  @Prop({ type: [{ name: String, email: String, walletAddress: String }] })
+  candidates?: { name: string; email?: string; walletAddress: string }[];
 }
 
 export const CertificateSchema = SchemaFactory.createForClass(Certificate);
