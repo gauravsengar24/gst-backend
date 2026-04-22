@@ -34,14 +34,23 @@ export class CreateCertificateDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ type: [CreateCandidateDto]})
+  @ApiProperty({ type: [CreateCandidateDto], required: false })
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateCandidateDto)
-  candidates!: CreateCandidateDto[];
+  candidates?: CreateCandidateDto[];
 
   @ApiProperty({ example: '60d0fe4f5311236168a109ca', required: false })
   @IsOptional()
   @IsString()
   eventId?: string;
+
+  @ApiProperty({ example: 10, required: false })
+  @IsOptional()
+  bulkCount?: number;
+
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  generatePlaceholders?: boolean;
 }

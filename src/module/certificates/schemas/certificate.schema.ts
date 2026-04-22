@@ -26,8 +26,14 @@ export class Certificate {
   @Prop({ type: String })
   eventId?: string;
 
-  @Prop({ type: [{ name: String, email: String, walletAddress: String }] })
-  candidates?: { name: string; email?: string; walletAddress: string }[];
+  @Prop()
+  ipfsHash?: string;
+
+  @Prop()
+  metadataUrl?: string;
+
+  @Prop({ type: [{ name: String, email: String, walletAddress: String, localImagePath: String, ipfsHash: String, metadataUrl: String }] })
+  candidates?: { name: string; email?: string; walletAddress: string; localImagePath?: string; ipfsHash?: string; metadataUrl?: string }[];
 }
 
 export const CertificateSchema = SchemaFactory.createForClass(Certificate);

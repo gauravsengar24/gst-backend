@@ -11,7 +11,8 @@ export class DashboardService {
     @InjectModel(Event.name) private eventModel: Model<EventDocument>,
   ) {}
 
-  async getDashboardStats(eventId?: string) {
+  async getDashboardStats(eventId?: string, page: number = 1, limit: number = 5) {
+    const skip = (page - 1) * limit;
     const query: any = {};
     if (eventId) {
       query.eventId = eventId;
@@ -26,23 +27,13 @@ export class DashboardService {
       todaysCertificates,
       certificateTypes,
       recentActivity,
-      typeBreakdown
     ] = await Promise.all([
       this.certificateModel.countDocuments(query),
       this.eventModel.countDocuments(),
       this.certificateModel.countDocuments({ ...query, createdAt: { $gte: today } }),
       this.certificateModel.distinct('type', query),
-      this.certificateModel.find(query).sort({ createdAt: -1 }).limit(5).exec(),
-      this.certificateModel.aggregate([
-        { $match: query },
-        { $group: { _id: '$type', count: { $sum: 1 } } }
-      ])
+      this.certificateModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
     ]);
-
-    const formattedTypeBreakdown = typeBreakdown.reduce((acc, curr) => {
-      acc[curr._id] = curr.count;
-      return acc;
-    }, {});
 
     return {
       stats: {
@@ -51,14 +42,21 @@ export class DashboardService {
         todaysCertificates,
         certificateTypes: certificateTypes.length,
       },
-      recentActivity: recentActivity.map(cert => ({
-        id: cert._id,
-        title: cert.title,
-        date: cert.issuedAt,
-        organization: cert.issuer,
-        type: cert.type
-      })),
-      typeBreakdown: formattedTypeBreakdown
+      recentActivity: {
+        data: recentActivity.map(cert => ({
+          id: cert._id,
+          title: cert.title,
+          date: cert.issuedAt,
+          organization: cert.issuer,
+          type: cert.type
+        })),
+        pagination: {
+          total: totalCertificates,
+          page,
+          limit,
+          pages: Math.ceil(totalCertificates / limit)
+        }
+      },
     };
   }
 }

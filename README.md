@@ -1,35 +1,39 @@
 # Certificate Backend
 
-A NestJS-based backend API for managing digital certificates, events, and user authentication.
+A NestJS-based backend API for managing digital certificates, events, user authentication, and IPFS metadata.
 
 ## Table of Contents
 
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Installation](#installation)
+- [Environment Variables](#environment-variables)
 - [API Endpoints](#api-endpoints)
+- [Project Features](#project-features)
 - [API Documentation](#api-documentation)
-- [Project Structure](#project-structure)
-- [Development](#development)
 
 ## Features
 
-- **Authentication & Authorization**: JWT-based auth with cookie support and role-based access control
-- **Certificate Management**: Create, read, update, and delete certificates with auto-generated issue dates
-- **Event Management**: Full CRUD operations for events with pagination and search
-- **User Management**: Admin and regular user roles
-- **MongoDB Integration**: Document-based storage with Mongoose ODM
-- **API Documentation**: Swagger/OpenAPI documentation
-- **Validation**: Class-validator for request validation
+- **Authentication**: JWT-based auth with cookie support.
+- **Certificate Management**: 
+  - Dynamic generation of certificate images with candidate names.
+  - PDF generation for easy downloading.
+  - Bulk placeholder generation.
+- **IPFS Integration**: 
+  - Automatically upload certificate images and metadata JSON to IPFS (via Pinata).
+  - NFT-compatible metadata structure.
+- **Event Management**: Track events and associate them with certificates.
+- **Dashboard Statistics**: Real-time stats for certificates and events.
+- **Static Assets**: Automatically served via `/uploads` path.
 
 ## Tech Stack
 
 - **Framework**: NestJS
 - **Database**: MongoDB with Mongoose
-- **Authentication**: Passport.js with JWT strategy
-- **Validation**: class-validator
+- **Image Processing**: Sharp (for high-performance image overlay)
+- **PDF Generation**: PDFKit
+- **IPFS Storage**: Pinata API
 - **Documentation**: Swagger/OpenAPI
-- **Language**: TypeScript
 
 ## Installation
 
@@ -39,92 +43,59 @@ A NestJS-based backend API for managing digital certificates, events, and user a
    npm install
    ```
 
-3. Set up environment variables in `.env`:
-   ```
-   MONGODB_URI=mongodb://localhost:27017/certificates
-   SECRET_KEY=your-jwt-secret-key
-   PORT=3000
-   ```
+3. Set up environment variables in `.env` (see below).
 
 4. Start the development server:
    ```bash
    npm run dev
    ```
 
+## Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+MONGODB_URI=mongodb://localhost:27017/cert-backend
+PORT=3000
+SECRET_KEY=your_jwt_secret_key
+REFRESH_SECRET_KEY=your_refresh_secret_key
+
+# IPFS / Pinata Config
+PINATA_JWT=your_pinata_jwt_here
+```
+
 ## API Endpoints
 
 ### Authentication
-- `POST /auth/login` - User login (sets access_token cookie)
-- `POST /auth/logout` - User logout (clears cookie)
-- `POST /auth` - Register new user (requires auth)
-- `GET /auth` - Get all users (requires auth)
-- `GET /auth/:id` - Get user by ID (requires auth)
-- `PATCH /auth/:id` - Update user (requires auth)
-- `DELETE /auth/:id` - Delete user (requires auth)
+- `POST /auth/login` - Login and get JWT cookie
+- `POST /auth/logout` - Logout and clear cookie
+- `POST /auth` - Register new user (Auth required)
 
 ### Certificates
-- `GET /certificates?page=1&limit=10&search=keyword` - Get all certificates with pagination and search
-- `POST /certificates` - Create new certificate
-- `GET /certificates/:id` - Get certificate by ID
-- `PATCH /certificates/:id` - Update certificate
-- `DELETE /certificates/:id` - Delete certificate
+- `GET /certificates` - List certificates (Search & Pagination)
+- `POST /certificates` - Create certificate (Triggers **local image generation** for candidates)
+- `POST /certificates/:id/candidates` - Add candidates (Triggers **local image generation**)
+- `POST /certificates/:id/upload` - Upload generated images & metadata to **IPFS**
+- `GET /certificates/:id/download` - Download certificate as PDF
+- `GET /certificates/:id` - Get certificate details
+
+### Metadata & IPFS
+- `POST /metadata/upload` - Manual generate + upload to IPFS
+- `GET /metadata/test-overlay?name=JohnDoe` - Preview name overlay on template
+
+### Dashboard
+- `GET /dashboard?eventId=...&page=1&limit=5` - Get statistics (Recent activity is paginated)
 
 ### Events
-- `GET /events?page=1&limit=10&search=keyword` - Get all events with pagination and search
-- `POST /events/create` - Create new event
-- `GET /events/:id` - Get event by ID
-- `PATCH /events/:id` - Update event
-- `DELETE /events/:id` - Delete event
+- `GET /events` - List all events
+- `POST /events/create` - Create a new event
 
-### Admin
-- `GET /admin` - Get all admins
-- `GET /admin/:id` - Get admin by ID
-- `DELETE /admin/:id` - Delete admin
+## Project Features
+
+### Two-Step Certificate Issuance
+1. **Creation**: When you create a certificate or add candidates, the system generates a personalized JPEG image locally using the `certificate.jpeg` template. These are accessible via `/uploads`.
+2. **IPFS Upload**: Call the `/upload` endpoint to push those local images and their corresponding metadata to IPFS. This updates the certificate with `ipfsHash` and `metadataUrl`.
 
 ## API Documentation
 
-Once the server is running, visit `http://localhost:3000/api` for Swagger documentation.
-
-## Authentication
-
-The API uses JWT tokens stored in HTTP-only cookies for authentication.
-
-### Login
-Send a POST request to `/auth/login` with email and password. The server will set an `access_token` cookie that expires in 10 minutes.
-
-### Protected Routes
-Include the `access_token` cookie in requests to protected endpoints. The JWT strategy automatically extracts the token from either:
-- Authorization header: `Bearer <token>`
-- Cookie: `access_token=<token>`
-
-### Logout
-Send a POST request to `/auth/logout` to clear the authentication cookie.
-
-## Project Structure
-
-```
-src/
-├── app.controller.ts
-├── app.module.ts
-├── app.service.ts
-├── main.ts
-└── module/
-    ├── admin/
-    ├── auth/
-    ├── blockchain/
-    ├── candidates/
-    ├── certificates/
-    ├── dashboard/
-    ├── events/
-    └── metadata/
-```
-
-## Development
-
-- Use `npm run dev` for development with hot reload
-- All endpoints are protected with JWT authentication except login
-- Certificate issue dates are auto-generated if not provided
-- Passwords are excluded from user responses for security
-- **Access Tokens**: Expire in 10 minutes for security
-- Pagination and search available on GET /events and GET /certificates</content>
-<parameter name="filePath">d:\mst\cert-backend\README.md
+Once the server is running, visit `http://localhost:3000/api` for the full interactive Swagger documentation.

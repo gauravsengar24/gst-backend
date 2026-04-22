@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Res } from '@nestjs/common';
+import { Response } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { CertificatesService } from './certificates.service';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
@@ -22,6 +23,16 @@ export class CertificatesController {
     return this.certificatesService.create(createCertificateDto);
   }
 
+  @Post(':id/upload')
+  @ApiOperation({ summary: 'Upload already generated local images and metadata to IPFS' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
+  @ApiResponse({ status: 200, description: 'Certificate successfully uploaded to IPFS' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
+  upload(@Param('id') id: string) {
+    return this.certificatesService.uploadToIpfs(id);
+  }
+
   @Post(':id/candidates')
   @ApiOperation({ summary: 'Add candidates to an existing certificate' })
   @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
@@ -34,8 +45,28 @@ export class CertificatesController {
     return this.certificatesService.addCandidates(id, candidates);
   }
 
+  @Get(':id/download')
+  @ApiOperation({ summary: 'Download certificate as PDF' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
+  @ApiQuery({ name: 'name', required: false, description: 'Candidate name to appear on certificate' })
+  async downloadCertificate(
+    @Param('id') id: string,
+    @Query('name') name: string,
+    @Res() res: Response
+  ) {
+    const stream = await this.certificatesService.generatePdf(id, name);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=certificate_${name || 'recipient'}.pdf`,
+    });
+    stream.pipe(res);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all certificates with pagination and search' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number', example: '1' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: '10' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search keyword' })
   @ApiResponse({ status: 200, description: 'List of certificates' })
   findAll(
     @Query('page') page: string = '1',

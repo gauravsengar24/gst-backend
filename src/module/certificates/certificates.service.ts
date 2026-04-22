@@ -1,20 +1,143 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import * as PDFDocument from 'pdfkit';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { CreateCandidateDto } from '../candidates/dto/create-candidate.dto';
 import { Certificate, CertificateDocument } from './schemas/certificate.schema';
+import { MetadataService } from '../metadata/metadata.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class CertificatesService {
   constructor(
     @InjectModel(Certificate.name) private certificateModel: Model<CertificateDocument>,
+    private metadataService: MetadataService,
   ) {}
 
   async create(createCertificateDto: CreateCertificateDto) {
-    const createdCertificate = new this.certificateModel(createCertificateDto);
-    return createdCertificate.save();
+    const { candidates = [], bulkCount = 0, generatePlaceholders, ...rest } = createCertificateDto;
+    
+    let finalCandidates = [...candidates];
+    
+    if (generatePlaceholders && bulkCount > 0) {
+      const placeholders = Array.from({ length: bulkCount }, (_, i) => ({
+        name: `Candidate ${i + 1}`,
+        email: '',
+        walletAddress: ''
+      }));
+      finalCandidates = [...finalCandidates, ...placeholders];
+    }
+
+    const createdCertificate = new this.certificateModel({
+      ...rest,
+      candidates: finalCandidates
+    });
+    
+    const savedCertificate = await createdCertificate.save();
+
+    // STEP 1: Generate local images immediately
+    if (savedCertificate.candidates && savedCertificate.candidates.length > 0) {
+      const updatedCandidates = await this.generateLocalImages(savedCertificate, savedCertificate.candidates);
+      
+      return this.certificateModel.findByIdAndUpdate(
+        savedCertificate._id,
+        { $set: { candidates: updatedCandidates } },
+        { new: true }
+      ).exec();
+    }
+
+    return savedCertificate;
+  }
+
+  /**
+   * STEP 2: Separate API logic to take already generated local images and upload to IPFS
+   */
+  async uploadToIpfs(id: string) {
+    const certificate = await this.certificateModel.findById(id).exec();
+    if (!certificate) {
+      throw new NotFoundException('Certificate not found');
+    }
+
+    const updatedCandidates = await Promise.all(
+      (certificate.candidates || []).map(async (candidate) => {
+        // If it already has an IPFS hash or doesn't have a local image, skip it
+        if (!candidate.localImagePath || candidate.ipfsHash) return candidate;
+        
+        try {
+          const imagePath = path.join(process.cwd(), candidate.localImagePath);
+          if (!fs.existsSync(imagePath)) {
+            console.error(`Local image not found for upload: ${imagePath}`);
+            return candidate;
+          }
+          
+          const imageBuffer = fs.readFileSync(imagePath);
+
+          // Upload to IPFS (Image + JSON Metadata)
+          const ipfsData = await this.metadataService.uploadToIpfs({
+            name: candidate.name,
+            description: certificate.description || '',
+            date: certificate.issuedAt.toISOString().split('T')[0],
+            issuedBy: certificate.issuer,
+            title: certificate.title,
+            type: certificate.type,
+            imageBuffer,
+          });
+
+          return { 
+            ...candidate,
+            ipfsHash: ipfsData.imageHash,
+            metadataUrl: ipfsData.metadataUrl 
+          };
+        } catch (error) {
+          console.error(`Failed to upload candidate ${candidate.name} to IPFS:`, error);
+          return candidate;
+        }
+      })
+    );
+
+    return this.certificateModel.findByIdAndUpdate(
+      id,
+      { $set: { candidates: updatedCandidates } },
+      { new: true }
+    ).exec();
+  }
+
+  private async generateLocalImages(certificate: CertificateDocument, candidates: any[]) {
+    return Promise.all(
+      candidates.map(async (candidate) => {
+        if (!candidate.name) return candidate;
+        
+        try {
+          // Generate and save image locally
+          const imageBuffer = await this.metadataService.generateCertificateImage(candidate.name);
+          const localImagePath = await this.saveCertificateImage(certificate._id.toString(), candidate.name, imageBuffer);
+          
+          return { 
+            name: candidate.name,
+            email: candidate.email,
+            walletAddress: candidate.walletAddress,
+            localImagePath
+          };
+        } catch (error) {
+          console.error(`Failed to generate local image for ${candidate.name}:`, error);
+          return candidate;
+        }
+      })
+    );
+  }
+
+  private async saveCertificateImage(id: string, name: string, buffer: Buffer): Promise<string> {
+    const uploadDir = path.join(process.cwd(), 'uploads/certificates', id);
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    const fileName = `${name.replace(/\s+/g, '_')}_${Date.now()}.jpg`;
+    const filePath = path.join(uploadDir, fileName);
+    fs.writeFileSync(filePath, buffer);
+    return `uploads/certificates/${id}/${fileName}`;
   }
 
   async findAll(page: number = 1, limit: number = 10, search?: string) {
@@ -59,10 +182,54 @@ export class CertificatesService {
   }
 
   async addCandidates(id: string, candidates: CreateCandidateDto[]) {
+    const certificate = await this.certificateModel.findById(id).exec();
+    if (!certificate) {
+      throw new NotFoundException('Certificate not found');
+    }
+
+    const updatedCandidates = await this.generateLocalImages(certificate, candidates);
+    
     return this.certificateModel.findByIdAndUpdate(
       id,
-      { $push: { candidates: { $each: candidates } } },
+      { $push: { candidates: { $each: updatedCandidates } } },
       { new: true }
     ).exec();
+  }
+
+  async generatePdf(id: string, candidateName?: string) {
+    const certificate = await this.certificateModel.findById(id).exec();
+    if (!certificate) {
+      throw new NotFoundException('Certificate not found');
+    }
+
+    const doc = new PDFDocument({
+      layout: 'landscape',
+      size: 'A4',
+    });
+
+    const name = candidateName || certificate.recipientName || 'Recipient';
+
+    // Draw background/border
+    doc.rect(20, 20, doc.page.width - 40, doc.page.height - 40).stroke();
+
+    // Add Content
+    doc.fontSize(40).text('CERTIFICATE', { align: 'center' }).moveDown();
+    doc.fontSize(20).text('OF ' + certificate.type.toUpperCase(), { align: 'center' }).moveDown();
+    
+    doc.fontSize(15).text('This is to certify that', { align: 'center' }).moveDown();
+    
+    doc.fontSize(30).fillColor('#2c3e50').text(name, { align: 'center' }).moveDown();
+    
+    doc.fontSize(15).fillColor('black').text('has successfully completed', { align: 'center' }).moveDown();
+    
+    doc.fontSize(20).text(certificate.title, { align: 'center' }).moveDown();
+    
+    doc.fontSize(12).text(certificate.description || '', { align: 'center' }).moveDown(2);
+    
+    doc.fontSize(15).text('Issued by: ' + certificate.issuer, { align: 'center' });
+    doc.text('Date: ' + new Date(certificate.issuedAt).toLocaleDateString(), { align: 'center' });
+
+    doc.end();
+    return doc;
   }
 }
