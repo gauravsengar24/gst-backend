@@ -4,11 +4,13 @@ import { CertificatesService } from './certificates.service';
 import { CertificatesController } from './certificates.controller';
 import { Certificate, CertificateSchema } from './schemas/certificate.schema';
 import { MetadataModule } from '../metadata/metadata.module';
+import { BlockchainModule } from '../blockchain/blockchain.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Certificate.name, schema: CertificateSchema }]),
-    MetadataModule
+    MetadataModule,
+    BlockchainModule
   ],
   controllers: [CertificatesController],
   providers: [CertificatesService],

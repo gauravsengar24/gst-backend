@@ -83,7 +83,6 @@ export class MetadataService {
 
     // 4. Save to Certificate collection in MongoDB
     await this.certificateModel.create({
-      recipientName: data.name,
       title: data.title,
       issuer: data.issuedBy,
       description: data.description,

@@ -7,6 +7,7 @@ import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { CreateCandidateDto } from '../candidates/dto/create-candidate.dto';
 import { Certificate, CertificateDocument } from './schemas/certificate.schema';
 import { MetadataService } from '../metadata/metadata.service';
+import { BlockchainService } from '../blockchain/blockchain.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -15,6 +16,7 @@ export class CertificatesService {
   constructor(
     @InjectModel(Certificate.name) private certificateModel: Model<CertificateDocument>,
     private metadataService: MetadataService,
+    private blockchainService: BlockchainService,
   ) {}
 
   async create(createCertificateDto: CreateCertificateDto) {
@@ -86,10 +88,26 @@ export class CertificatesService {
             imageBuffer,
           });
 
+          let txHash = '';
+          let tokenId = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000); // make this dynamically incremental after some time!
+
+          if (candidate.walletAddress) {
+            try {
+              txHash = await this.blockchainService.mintCertificate(
+                candidate.walletAddress,
+                tokenId,
+                ipfsData.metadataUrl
+              );
+            } catch (mintError) {
+              console.error(`Failed to mint NFT for ${candidate.name}:`, mintError);
+            }
+          }
+          console.log(txHash);
           return { 
-            ...candidate,
             ipfsHash: ipfsData.imageHash,
-            metadataUrl: ipfsData.metadataUrl 
+            metadataUrl: ipfsData.metadataUrl,
+            tokenId: txHash ? tokenId : undefined,
+            transactionHash: txHash ? `www.mstscan.com/${txHash}` : undefined
           };
         } catch (error) {
           console.error(`Failed to upload candidate ${candidate.name} to IPFS:`, error);
@@ -146,7 +164,7 @@ export class CertificatesService {
 
     if (search) {
       query.$or = [
-        { recipientName: { $regex: search, $options: 'i' } },
+        { 'candidates.name': { $regex: search, $options: 'i' } },
         { title: { $regex: search, $options: 'i' } },
         { issuer: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
@@ -207,12 +225,10 @@ export class CertificatesService {
       size: 'A4',
     });
 
-    const name = candidateName || certificate.recipientName || 'Recipient';
+    const name = candidateName || 'Recipient';
 
-    // Draw background/border
     doc.rect(20, 20, doc.page.width - 40, doc.page.height - 40).stroke();
 
-    // Add Content
     doc.fontSize(40).text('CERTIFICATE', { align: 'center' }).moveDown();
     doc.fontSize(20).text('OF ' + certificate.type.toUpperCase(), { align: 'center' }).moveDown();
     

@@ -24,9 +24,9 @@ export class CertificatesController {
   }
 
   @Post(':id/upload')
-  @ApiOperation({ summary: 'Upload already generated local images and metadata to IPFS' })
+  @ApiOperation({ summary: 'Upload generated images to IPFS and mint NFTs' })
   @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
-  @ApiResponse({ status: 200, description: 'Certificate successfully uploaded to IPFS' })
+  @ApiResponse({ status: 200, description: 'Certificate successfully uploaded to IPFS and NFTs minted' })
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   upload(@Param('id') id: string) {

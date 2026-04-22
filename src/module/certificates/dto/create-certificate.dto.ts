@@ -4,11 +4,6 @@ import { Type } from 'class-transformer';
 import { CreateCandidateDto } from '../../candidates/dto/create-candidate.dto';
 
 export class CreateCertificateDto {
-  @ApiProperty({ example: 'John Doe', required: false })
-  @IsOptional()
-  @IsString()
-  recipientName?: string;
-
   @ApiProperty({ example: 'Participation' })
   @IsNotEmpty()
   @IsString()

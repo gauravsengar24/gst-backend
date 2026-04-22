@@ -22,6 +22,9 @@ A NestJS-based backend API for managing digital certificates, events, user authe
 - **IPFS Integration**: 
   - Automatically upload certificate images and metadata JSON to IPFS (via Pinata).
   - NFT-compatible metadata structure.
+- **NFT Minting**: 
+  - **Auto-Minting**: Automatically mints an NFT on the MST Blockchain after IPFS upload.
+  - **Transaction Tracking**: Stores Token IDs and Transaction Hashes for each candidate.
 - **Event Management**: Track events and associate them with certificates.
 - **Dashboard Statistics**: Real-time stats for certificates and events.
 - **Static Assets**: Automatically served via `/uploads` path.
@@ -62,6 +65,11 @@ REFRESH_SECRET_KEY=your_refresh_secret_key
 
 # IPFS / Pinata Config
 PINATA_JWT=your_pinata_jwt_here
+
+# Blockchain / NFT Config
+BLOCKCHAIN_RPC=https://testnetrpc.mstblockchain.com
+PRIVATE_KEY=your_wallet_private_key
+NFT_CONTRACT_ADDRESS=your_contract_address
 ```
 
 ## API Endpoints
@@ -92,9 +100,10 @@ PINATA_JWT=your_pinata_jwt_here
 
 ## Project Features
 
-### Two-Step Certificate Issuance
+### Three-Step Certificate Issuance
 1. **Creation**: When you create a certificate or add candidates, the system generates a personalized JPEG image locally using the `certificate.jpeg` template. These are accessible via `/uploads`.
 2. **IPFS Upload**: Call the `/upload` endpoint to push those local images and their corresponding metadata to IPFS. This updates the certificate with `ipfsHash` and `metadataUrl`.
+3. **Blockchain Minting (Automated)**: Upon successful IPFS upload, the system automatically triggers an NFT minting transaction on-chain for each candidate with a valid `walletAddress`. Token IDs and transaction hashes (formatted as explorer links to `www.mstscan.com`) are saved to the candidate record.
 
 ## API Documentation
 
