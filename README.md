@@ -107,7 +107,23 @@ NFT_CONTRACT_ADDRESS=your_contract_address
 ## Project Features
 
 ### Three-Step Certificate Issuance
-1. **Creation**: When you create a certificate or add candidates, the system generates a personalized JPEG image locally using the `certificate.jpeg` template. These are accessible via `/uploads`.
+1. **Creation**: When you create a certificate or add candidates, the system generates a personalized JPEG image locally using the `certificate.jpeg` template. **Note: 'type' is now defined per candidate.**
+   
+   **Example Request Body (`POST /certificates`):**
+   ```json
+   {
+     "title": "Web3 Workshop",
+     "issuer": "MST Blockchain",
+     "candidates": [
+       {
+         "name": "John Doe",
+         "email": "john@example.com",
+         "walletAddress": "0x123...",
+         "type": "Participation"
+       }
+     ]
+   }
+   ```
 2. **IPFS Upload**: Call the `/upload` endpoint to push those local images and their corresponding metadata to IPFS. This updates the certificate with `ipfsHash` and `metadataUrl`.
 3. **Blockchain Minting (Automated)**: Upon successful IPFS upload, the system automatically triggers an NFT minting transaction on-chain for each candidate with a valid `walletAddress`. Token IDs and transaction hashes (formatted as explorer links to `www.mstscan.com`) are saved to the candidate record.
 

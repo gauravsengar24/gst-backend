@@ -15,7 +15,7 @@ import { User, UserSchema } from './schemas/user.schema';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('SECRET_KEY'),
-        signOptions: { expiresIn: '10m' },
+        signOptions: { expiresIn: '1d' },
       }),
       inject: [ConfigService],
     }),

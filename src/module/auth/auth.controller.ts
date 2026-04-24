@@ -21,9 +21,9 @@ export class AuthController {
     const result = await this.authService.login(loginDto);
     response.cookie('access_token', result.access_token, {
       httpOnly: true,
-      secure: true, // Set to true if using HTTPS
+      secure: true,
       sameSite: 'none',
-      // maxAge: 10 * 60 * 1000, // 10mins
+      maxAge: 24 * 60 * 60 * 1000 // 1day
     });
     return { message: result.message, user: result.user };
   }
