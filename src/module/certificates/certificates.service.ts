@@ -28,7 +28,8 @@ export class CertificatesService {
       const placeholders = Array.from({ length: bulkCount }, (_, i) => ({
         name: `Candidate ${i + 1}`,
         email: '',
-        walletAddress: ''
+        walletAddress: '',
+        type: 'Participation'
       }));
       finalCandidates = [...finalCandidates, ...placeholders];
     }
@@ -84,7 +85,7 @@ export class CertificatesService {
             date: certificate.issuedAt.toISOString().split('T')[0],
             issuedBy: certificate.issuer,
             title: certificate.title,
-            type: certificate.type,
+            type: candidate.type,
             imageBuffer,
           });
 
@@ -137,6 +138,7 @@ export class CertificatesService {
             name: candidate.name,
             email: candidate.email,
             walletAddress: candidate.walletAddress,
+            type: candidate.type,
             localImagePath
           };
         } catch (error) {
@@ -225,12 +227,14 @@ export class CertificatesService {
       size: 'A4',
     });
 
+    const candidate = certificate.candidates?.find(c => c.name === candidateName);
+    const type = candidate?.type || 'Participation';
     const name = candidateName || 'Recipient';
 
     doc.rect(20, 20, doc.page.width - 40, doc.page.height - 40).stroke();
 
     doc.fontSize(40).text('CERTIFICATE', { align: 'center' }).moveDown();
-    doc.fontSize(20).text('OF ' + certificate.type.toUpperCase(), { align: 'center' }).moveDown();
+    doc.fontSize(20).text('OF ' + type.toUpperCase(), { align: 'center' }).moveDown();
     
     doc.fontSize(15).text('This is to certify that', { align: 'center' }).moveDown();
     

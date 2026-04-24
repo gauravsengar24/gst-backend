@@ -27,12 +27,14 @@ export class DashboardService {
       todaysCertificates,
       certificateTypes,
       recentActivity,
+      events,
     ] = await Promise.all([
       this.certificateModel.countDocuments(query),
       this.eventModel.countDocuments(),
       this.certificateModel.countDocuments({ ...query, createdAt: { $gte: today } }),
-      this.certificateModel.distinct('type', query),
+      this.certificateModel.distinct('candidates.type', query),
       this.certificateModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
+      this.eventModel.find().sort({ createdAt: -1 }).exec(),
     ]);
 
     return {
@@ -42,13 +44,21 @@ export class DashboardService {
         todaysCertificates,
         certificateTypes: certificateTypes.length,
       },
+      events: events.map(event => ({
+        id: event._id,
+        name: event.name,
+        title: event.title,
+        date: event.date,
+        place: event.place,
+        description: event.description
+      })),
       recentActivity: {
         data: recentActivity.map(cert => ({
           id: cert._id,
           title: cert.title,
           date: cert.issuedAt,
           organization: cert.issuer,
-          type: cert.type
+          type: cert.candidates?.[0]?.type || 'N/A'
         })),
         pagination: {
           total: totalCertificates,

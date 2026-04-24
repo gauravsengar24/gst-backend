@@ -79,6 +79,12 @@ NFT_CONTRACT_ADDRESS=your_contract_address
 - `POST /auth/logout` - Logout and clear cookie
 - `POST /auth` - Register new user (Auth required)
 
+### Admin & Profile
+- `PATCH /admin/change-password` - Change logged-in user's password (uses JWT cookie)
+- `GET /admin` - List all users (Admin only)
+- `GET /admin/:id` - Get user details
+- `DELETE /admin/:id` - Delete user
+
 ### Certificates
 - `GET /certificates` - List certificates (Search & Pagination)
 - `POST /certificates` - Create certificate (Triggers **local image generation** for candidates)

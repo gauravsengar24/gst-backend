@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -11,14 +11,13 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  @Patch('change-password/:email')
+  @Patch('change-password')
   @ApiOperation({ summary: 'Change user password' })
-  @ApiParam({ name: 'email', type: 'string', description: 'User Email' })
   @ApiBody({ type: ChangePasswordDto })
   @ApiResponse({ status: 200, description: 'Password changed successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  changePassword(@Param('email') email: string, @Body() changePasswordDto: ChangePasswordDto) {
-    return this.adminService.changePassword(email, changePasswordDto);
+  changePassword(@Req() req: any, @Body() changePasswordDto: ChangePasswordDto) {
+    return this.adminService.changePassword(req.user.email, changePasswordDto);
   }
 
   @Get()

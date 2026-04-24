@@ -86,12 +86,12 @@ export class MetadataService {
       title: data.title,
       issuer: data.issuedBy,
       description: data.description,
-      type: data.type,
       issuedAt: new Date(data.date),
       ipfsHash: imageHash,
       metadataUrl: `ipfs://${metadataResponse.IpfsHash}`,
       candidates: [{
         name: data.name,
+        type: data.type,
         localImagePath: '',
         ipfsHash: imageHash,
         metadataUrl: `ipfs://${metadataResponse.IpfsHash}`
