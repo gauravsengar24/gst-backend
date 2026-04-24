@@ -11,6 +11,8 @@ import { CandidatesModule } from './module/candidates/candidates.module';
 import { CertificatesModule } from './module/certificates/certificates.module';
 import { EventsModule } from './module/events/events.module';
 import { AdminModule } from './module/admin/admin.module';
+import { UsersModule } from './module/users/users.module';
+
 
 @Module({
   imports: [
@@ -32,7 +34,9 @@ import { AdminModule } from './module/admin/admin.module';
     BlockchainModule,
     MetadataModule,
     DashboardModule,
+    UsersModule,
   ],
+
   controllers: [AppController],
   providers: [AppService],
 })
