@@ -51,6 +51,9 @@ export class MetadataService {
     title: string;
     type: string;
     imageBuffer: Buffer;
+    walletAddress?: string;
+    transactionHash?: string;
+    skipSave?: boolean;
   }) {
     const imageFormData = new FormData();
     imageFormData.append('file', data.imageBuffer, {
@@ -78,25 +81,27 @@ export class MetadataService {
       pinataOptions: { cidVersion: 1 },
     };
 
-    // 3. Upload Metadata JSON to IPFS
     const metadataResponse = await this.uploadToPinata(payload, 'Metadata');
 
-    // 4. Save to Certificate collection in MongoDB
-    await this.certificateModel.create({
-      title: data.title,
-      issuer: data.issuedBy,
-      description: data.description,
-      issuedAt: new Date(data.date),
-      ipfsHash: imageHash,
-      metadataUrl: `ipfs://${metadataResponse.IpfsHash}`,
-      candidates: [{
-        name: data.name,
-        type: data.type,
-        localImagePath: '',
+    if (!data.skipSave) {
+      await this.certificateModel.create({
+        title: data.title,
+        issuer: data.issuedBy,
+        description: data.description,
+        issuedAt: new Date(data.date),
         ipfsHash: imageHash,
-        metadataUrl: `ipfs://${metadataResponse.IpfsHash}`
-      }]
-    });
+        metadataUrl: `ipfs://${metadataResponse.IpfsHash}`,
+        candidates: [{
+          name: data.name,
+          type: data.type,
+          walletAddress: data.walletAddress || '',
+          transactionHash: data.transactionHash || '',
+          localImagePath: '',
+          ipfsHash: imageHash,
+          metadataUrl: `ipfs://${metadataResponse.IpfsHash}`
+        }]
+      });
+    }
     
     return {
       imageHash,

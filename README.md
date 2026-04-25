@@ -89,7 +89,9 @@ NFT_CONTRACT_ADDRESS=your_contract_address
 - `GET /certificates` - List certificates (Search & Pagination)
 - `POST /certificates` - Create certificate (Triggers **local image generation** for candidates)
 - `POST /certificates/:id/candidates` - Add candidates (Triggers **local image generation**)
+- `POST /certificates/bulk-upload` - Create certificate + candidates via **CSV Upload** (Validated against `bulkCount`)
 - `POST /certificates/:id/upload` - Upload generated images & metadata to **IPFS**
+- `POST /certificates/:id/issue` - Alias for `/upload` (Semantically issues the certificate)
 - `GET /certificates/:id/download` - Download certificate as PDF
 - `GET /certificates/:id` - Get certificate details
 
@@ -124,8 +126,22 @@ NFT_CONTRACT_ADDRESS=your_contract_address
      ]
    }
    ```
-2. **IPFS Upload**: Call the `/upload` endpoint to push those local images and their corresponding metadata to IPFS. This updates the certificate with `ipfsHash` and `metadataUrl`.
+2. **IPFS Upload & Minting**: Call the `/upload` or `/issue` endpoint to push those local images and their corresponding metadata to IPFS.
 3. **Blockchain Minting (Automated)**: Upon successful IPFS upload, the system automatically triggers an NFT minting transaction on-chain for each candidate with a valid `walletAddress`. Token IDs and transaction hashes (formatted as explorer links to `www.mstscan.com`) are saved to the candidate record.
+
+### Bulk CSV Upload
+The `POST /certificates/bulk-upload` endpoint accepts `multipart/form-data`.
+- **Fields**: `title`, `issuer`, `bulkCount`, `file` (CSV).
+- **Validation**: 
+  - CSV must have `name` and `walletAddress` columns.
+  - Number of rows in CSV must match the `bulkCount` field.
+
+**Example CSV Content:**
+```csv
+name,walletAddress,email,type
+Alice,0x123...,alice@test.com,Achievement
+Bob,0x456...,bob@test.com,Participation
+```
 
 ## API Documentation
 

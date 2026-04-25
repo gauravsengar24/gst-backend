@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Res, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { CertificatesService } from './certificates.service';
@@ -22,6 +23,33 @@ export class CertificatesController {
   create(@Body() createCertificateDto: CreateCertificateDto) {
     return this.certificatesService.create(createCertificateDto);
   }
+  
+  @Post('bulk-upload')
+  @ApiOperation({ summary: 'Create a new certificate and upload candidates via CSV' })
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'CSV file with candidate data' },
+        title: { type: 'string' },
+        issuer: { type: 'string' },
+        description: { type: 'string' },
+        eventId: { type: 'string' },
+        issuedAt: { type: 'string' },
+        bulkCount: { type: 'number', description: 'Total number of candidates in the CSV' },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Certificate created and candidates added from CSV. Ensure CSV has "name" and "walletAddress" columns.' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
+  bulkUpload(
+    @Body() createCertificateDto: CreateCertificateDto,
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    return this.certificatesService.createWithCsv(createCertificateDto, file);
+  }
 
   @Post(':id/upload')
   @ApiOperation({ summary: 'Upload generated images to IPFS and mint NFTs' })
@@ -30,6 +58,16 @@ export class CertificatesController {
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   upload(@Param('id') id: string) {
+    return this.certificatesService.uploadToIpfs(id);
+  }
+
+  @Post(':id/issue')
+  @ApiOperation({ summary: 'Issue certificate: Upload images to IPFS and mint NFTs for all candidates' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
+  @ApiResponse({ status: 200, description: 'Certificate successfully issued (Uploaded to IPFS and NFT Minted)' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
+  issueCertificate(@Param('id') id: string) {
     return this.certificatesService.uploadToIpfs(id);
   }
 

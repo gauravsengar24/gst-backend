@@ -31,4 +31,13 @@ export class UploadMetadataDto {
   @IsNotEmpty()
   @IsString()
   type!: string;
+
+  @ApiProperty({ example: '0x123...', required: true })
+  @IsNotEmpty()
+  @IsString()
+  walletAddress!: string;
+
+  @ApiProperty({ example: '0xabc...', required: false })
+  @IsString()
+  transactionHash?: string;
 }

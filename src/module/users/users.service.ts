@@ -26,7 +26,16 @@ export class UsersService {
         issuedAt: cert.issuedAt,
         description: cert.description,
         eventId: cert.eventId,
-        candidate: candidateData
+        candidate: candidateData ? {
+          name: candidateData.name,
+          email: candidateData.email,
+          walletAddress: candidateData.walletAddress,
+          type: candidateData.type,
+          ipfsUrl: candidateData.ipfsHash ? `https://gateway.pinata.cloud/ipfs/${candidateData.ipfsHash}` : null,
+          metadataUrl: candidateData.metadataUrl,
+          transactionHash: candidateData.transactionHash,
+          tokenId: candidateData.tokenId,
+        } : null
       };
     });
   }

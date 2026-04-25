@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as PDFDocument from 'pdfkit';
@@ -10,6 +10,8 @@ import { MetadataService } from '../metadata/metadata.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as csv from 'csv-parser';
+import { Readable } from 'stream';
 
 @Injectable()
 export class CertificatesService {
@@ -41,7 +43,6 @@ export class CertificatesService {
     
     const savedCertificate = await createdCertificate.save();
 
-    // STEP 1: Generate local images immediately
     if (savedCertificate.candidates && savedCertificate.candidates.length > 0) {
       const updatedCandidates = await this.generateLocalImages(savedCertificate, savedCertificate.candidates);
       
@@ -55,9 +56,6 @@ export class CertificatesService {
     return savedCertificate;
   }
 
-  /**
-   * STEP 2: Separate API logic to take already generated local images and upload to IPFS
-   */
   async uploadToIpfs(id: string) {
     const certificate = await this.certificateModel.findById(id).exec();
     if (!certificate) {
@@ -66,7 +64,6 @@ export class CertificatesService {
 
     const updatedCandidates = await Promise.all(
       (certificate.candidates || []).map(async (candidate) => {
-        // If it already has an IPFS hash or doesn't have a local image, skip it
         if (!candidate.localImagePath || candidate.ipfsHash) return candidate;
         
         try {
@@ -78,7 +75,6 @@ export class CertificatesService {
           
           const imageBuffer = fs.readFileSync(imagePath);
 
-          // Upload to IPFS (Image + JSON Metadata)
           const ipfsData = await this.metadataService.uploadToIpfs({
             name: candidate.name,
             description: certificate.description || '',
@@ -87,6 +83,8 @@ export class CertificatesService {
             title: certificate.title,
             type: candidate.type,
             imageBuffer,
+            walletAddress: candidate.walletAddress,
+            skipSave: true,
           });
 
           let txHash = '';
@@ -103,12 +101,16 @@ export class CertificatesService {
               console.error(`Failed to mint NFT for ${candidate.name}:`, mintError);
             }
           }
-          console.log(txHash);
+          // console.log(txHash);
           return { 
+            name: candidate.name,
+            email: candidate.email,
+            walletAddress: candidate.walletAddress,
+            type: candidate.type,
             ipfsHash: ipfsData.imageHash,
             metadataUrl: ipfsData.metadataUrl,
             tokenId: txHash ? tokenId : undefined,
-            transactionHash: txHash ? `www.mstscan.com/${txHash}` : undefined
+            transactionHash: txHash ? `https://www.mstscan.com/tx/${txHash}` : undefined
           };
         } catch (error) {
           console.error(`Failed to upload candidate ${candidate.name} to IPFS:`, error);
@@ -251,5 +253,59 @@ export class CertificatesService {
 
     doc.end();
     return doc;
+  }
+
+  async createWithCsv(createCertificateDto: CreateCertificateDto, file: Express.Multer.File) {
+    const candidates: CreateCandidateDto[] = [];
+    const requiredHeaders = ['name', 'walletAddress'];
+    let headers: string[] = [];
+    
+    if (!file) {
+      throw new BadRequestException('CSV file is required');
+    }
+
+    if (!createCertificateDto.bulkCount) {
+       throw new BadRequestException('bulkCount is required for CSV upload');
+    }
+
+    // Parse CSV file
+    const stream = Readable.from(file.buffer);
+    await new Promise((resolve, reject) => {
+      stream
+        .pipe(csv())
+        .on('headers', (headerList) => {
+          headers = headerList;
+          const missingHeaders = requiredHeaders.filter(h => 
+            !headers.some(actualHeader => actualHeader.toLowerCase() === h.toLowerCase())
+          );
+          if (missingHeaders.length > 0) {
+            reject(new BadRequestException(`Missing required columns: ${missingHeaders.join(', ')}`));
+          }
+        })
+        .on('data', (data) => {
+          const candidate: CreateCandidateDto = {
+            name: data.name || data.Name || data.candidateName || '',
+            email: data.email || data.Email || '',
+            walletAddress: data.walletAddress || data.WalletAddress || data.wallet || '',
+            type: data.type || data.Type || 'Participation'
+          };
+          
+          if (candidate.name) {
+            candidates.push(candidate);
+          }
+        })
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    if (candidates.length !== Number(createCertificateDto.bulkCount)) {
+      throw new BadRequestException(`CSV row count (${candidates.length}) does not match bulkCount (${createCertificateDto.bulkCount})`);
+    }
+
+    // Create certificate with parsed candidates
+    return this.create({
+      ...createCertificateDto,
+      candidates
+    });
   }
 }
