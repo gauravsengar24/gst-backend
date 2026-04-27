@@ -108,30 +108,33 @@ NFT_CONTRACT_ADDRESS=your_contract_address
 
 ## Project Features
 
-### Three-Step Certificate Issuance
-1. **Creation**: When you create a certificate or add candidates, the system generates a personalized JPEG image locally using the `certificate.jpeg` template. **Note: 'type' is now defined per candidate.**
+### Unified Certificate Issuance
+The system now handles creation, image generation, IPFS upload, and NFT minting in a single API call.
+
+1. **Creation & Automated Issuance**: When you create a certificate (manually or via CSV), the system:
+   - Generates personalized JPEG images locally.
+   - Uploads images and metadata to IPFS.
+   - Automatically mints NFTs for candidates with valid wallet addresses.
    
-   **Example Request Body (`POST /certificates`):**
-   ```json
-   {
-     "title": "Web3 Workshop",
-     "issuer": "MST Blockchain",
-     "candidates": [
-       {
-         "name": "John Doe",
-         "email": "john@example.com",
-         "walletAddress": "0x123...",
-         "type": "Participation"
-       }
-     ]
-   }
-   ```
-2. **IPFS Upload & Minting**: Call the `/upload` or `/issue` endpoint to push those local images and their corresponding metadata to IPFS.
-3. **Blockchain Minting (Automated)**: Upon successful IPFS upload, the system automatically triggers an NFT minting transaction on-chain for each candidate with a valid `walletAddress`. Token IDs and transaction hashes (formatted as explorer links to `www.mstscan.com`) are saved to the candidate record.
+**Example Request Body (`POST /certificates`):**
+```json
+{
+  "title": "Web3 Workshop",
+  "issuingAuthority": "MST Blockchain",
+  "candidates": [
+    {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "walletAddress": "0x123...",
+      "type": "Participation"
+    }
+  ]
+}
+```
 
 ### Bulk CSV Upload
 The `POST /certificates/bulk-upload` endpoint accepts `multipart/form-data`.
-- **Fields**: `title`, `issuer`, `bulkCount`, `file` (CSV).
+- **Fields**: `title`, `issuingAuthority`, `bulkCount`, `file` (CSV).
 - **Validation**: 
   - CSV must have `name` and `walletAddress` columns.
   - Number of rows in CSV must match the `bulkCount` field.

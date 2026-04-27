@@ -86,7 +86,7 @@ export class MetadataService {
     if (!data.skipSave) {
       await this.certificateModel.create({
         title: data.title,
-        issuer: data.issuedBy,
+        issuingAuthority: data.issuedBy,
         description: data.description,
         issuedAt: new Date(data.date),
         ipfsHash: imageHash,

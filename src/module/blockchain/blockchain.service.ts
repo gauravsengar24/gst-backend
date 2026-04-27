@@ -37,7 +37,12 @@ export class BlockchainService implements OnModuleInit {
     }
 
     try {
-      const tx = await this.contract.safeMint(to, tokenId, tokenURI);
+      const nonce = await this.wallet.getNonce('pending');
+      
+      const tx = await this.contract.safeMint(to, tokenId, tokenURI, {
+        nonce: nonce
+      });
+      
       const receipt = await tx.wait();
       return receipt.hash;
     } catch (error) {

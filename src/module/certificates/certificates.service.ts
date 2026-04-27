@@ -22,7 +22,7 @@ export class CertificatesService {
   ) {}
 
   async create(createCertificateDto: CreateCertificateDto) {
-    const { candidates = [], bulkCount = 0, generatePlaceholders, ...rest } = createCertificateDto;
+    const { candidates = [], bulkCount = 0, generatePlaceholders, description, issuingAuthority, ...rest } = createCertificateDto;
     
     let finalCandidates = [...candidates];
     
@@ -38,6 +38,8 @@ export class CertificatesService {
 
     const createdCertificate = new this.certificateModel({
       ...rest,
+      description,
+      issuingAuthority,
       candidates: finalCandidates
     });
     
@@ -46,11 +48,13 @@ export class CertificatesService {
     if (savedCertificate.candidates && savedCertificate.candidates.length > 0) {
       const updatedCandidates = await this.generateLocalImages(savedCertificate, savedCertificate.candidates);
       
-      return this.certificateModel.findByIdAndUpdate(
+      await this.certificateModel.findByIdAndUpdate(
         savedCertificate._id,
         { $set: { candidates: updatedCandidates } },
-        { new: true }
+        { returnDocument: 'after' }
       ).exec();
+
+      return this.uploadToIpfs(savedCertificate._id.toString());
     }
 
     return savedCertificate;
@@ -62,67 +66,74 @@ export class CertificatesService {
       throw new NotFoundException('Certificate not found');
     }
 
-    const updatedCandidates = await Promise.all(
-      (certificate.candidates || []).map(async (candidate) => {
-        if (!candidate.localImagePath || candidate.ipfsHash) return candidate;
-        
-        try {
-          const imagePath = path.join(process.cwd(), candidate.localImagePath);
-          if (!fs.existsSync(imagePath)) {
-            console.error(`Local image not found for upload: ${imagePath}`);
-            return candidate;
-          }
-          
-          const imageBuffer = fs.readFileSync(imagePath);
-
-          const ipfsData = await this.metadataService.uploadToIpfs({
-            name: candidate.name,
-            description: certificate.description || '',
-            date: certificate.issuedAt.toISOString().split('T')[0],
-            issuedBy: certificate.issuer,
-            title: certificate.title,
-            type: candidate.type,
-            imageBuffer,
-            walletAddress: candidate.walletAddress,
-            skipSave: true,
-          });
-
-          let txHash = '';
-          let tokenId = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000); // make this dynamically incremental after some time!
-
-          if (candidate.walletAddress) {
-            try {
-              txHash = await this.blockchainService.mintCertificate(
-                candidate.walletAddress,
-                tokenId,
-                ipfsData.metadataUrl
-              );
-            } catch (mintError) {
-              console.error(`Failed to mint NFT for ${candidate.name}:`, mintError);
-            }
-          }
-          // console.log(txHash);
-          return { 
-            name: candidate.name,
-            email: candidate.email,
-            walletAddress: candidate.walletAddress,
-            type: candidate.type,
-            ipfsHash: ipfsData.imageHash,
-            metadataUrl: ipfsData.metadataUrl,
-            tokenId: txHash ? tokenId : undefined,
-            transactionHash: txHash ? `https://www.mstscan.com/tx/${txHash}` : undefined
-          };
-        } catch (error) {
-          console.error(`Failed to upload candidate ${candidate.name} to IPFS:`, error);
-          return candidate;
+    const updatedCandidates: any[] = [];
+    for (const candidate of certificate.candidates || []) {
+      if (!candidate.localImagePath || candidate.ipfsHash) {
+        updatedCandidates.push(candidate);
+        continue;
+      }
+      
+      try {
+        const imagePath = path.join(process.cwd(), candidate.localImagePath);
+        if (!fs.existsSync(imagePath)) {
+          console.error(`Local image not found for upload: ${imagePath}`);
+          updatedCandidates.push(candidate);
+          continue;
         }
-      })
-    );
+        
+        const imageBuffer = fs.readFileSync(imagePath);
+
+        const ipfsData = await this.metadataService.uploadToIpfs({
+          name: candidate.name,
+          description: certificate.description || '',
+          date: certificate.issuedAt.toISOString().split('T')[0],
+          issuedBy: certificate.issuingAuthority,
+          title: certificate.title,
+          type: candidate.type,
+          imageBuffer,
+          walletAddress: candidate.walletAddress,
+          skipSave: true,
+        });
+
+        let txHash = '';
+        let tokenId = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000);
+
+        if (candidate.walletAddress) {
+          txHash = await this.blockchainService.mintCertificate(
+            candidate.walletAddress,
+            tokenId,
+            ipfsData.metadataUrl
+          );
+          // Wait 3 sec
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+
+        updatedCandidates.push({ 
+          name: candidate.name,
+          email: candidate.email,
+          walletAddress: candidate.walletAddress,
+          type: candidate.type,
+          ipfsHash: ipfsData.imageHash,
+          metadataUrl: ipfsData.metadataUrl,
+          tokenId: txHash ? tokenId : undefined,
+          transactionHash: txHash ? `https://www.mstscan.com/tx/${txHash}` : undefined
+        });
+      } catch (error) {
+        await this.certificateModel.findByIdAndUpdate(
+          id,
+          { $set: { candidates: [...updatedCandidates, ...(certificate.candidates || []).slice(updatedCandidates.length)] } },
+          { returnDocument: 'after' }
+        ).exec();
+        
+        console.error(`Failed to process candidate ${candidate.name}:`, error);
+        throw new BadRequestException(`Processing failed at candidate ${candidate.name}: ${(error as any).message}`);
+      }
+    }
 
     return this.certificateModel.findByIdAndUpdate(
       id,
       { $set: { candidates: updatedCandidates } },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
   }
 
@@ -131,22 +142,16 @@ export class CertificatesService {
       candidates.map(async (candidate) => {
         if (!candidate.name) return candidate;
         
-        try {
-          // Generate and save image locally
-          const imageBuffer = await this.metadataService.generateCertificateImage(candidate.name);
-          const localImagePath = await this.saveCertificateImage(certificate._id.toString(), candidate.name, imageBuffer);
-          
-          return { 
-            name: candidate.name,
-            email: candidate.email,
-            walletAddress: candidate.walletAddress,
-            type: candidate.type,
-            localImagePath
-          };
-        } catch (error) {
-          console.error(`Failed to generate local image for ${candidate.name}:`, error);
-          return candidate;
-        }
+        const imageBuffer = await this.metadataService.generateCertificateImage(candidate.name);
+        const localImagePath = await this.saveCertificateImage(certificate._id.toString(), candidate.name, imageBuffer);
+        
+        return { 
+          name: candidate.name,
+          email: candidate.email,
+          walletAddress: candidate.walletAddress,
+          type: candidate.type,
+          localImagePath
+        };
       })
     );
   }
@@ -170,7 +175,7 @@ export class CertificatesService {
       query.$or = [
         { 'candidates.name': { $regex: search, $options: 'i' } },
         { title: { $regex: search, $options: 'i' } },
-        { issuer: { $regex: search, $options: 'i' } },
+        { issuingAuthority: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
       ];
     }
@@ -211,11 +216,13 @@ export class CertificatesService {
 
     const updatedCandidates = await this.generateLocalImages(certificate, candidates);
     
-    return this.certificateModel.findByIdAndUpdate(
+    await this.certificateModel.findByIdAndUpdate(
       id,
       { $push: { candidates: { $each: updatedCandidates } } },
       { new: true }
     ).exec();
+
+    return this.uploadToIpfs(id);
   }
 
   async generatePdf(id: string, candidateName?: string) {
@@ -248,7 +255,7 @@ export class CertificatesService {
     
     doc.fontSize(12).text(certificate.description || '', { align: 'center' }).moveDown(2);
     
-    doc.fontSize(15).text('Issued by: ' + certificate.issuer, { align: 'center' });
+    doc.fontSize(15).text('Issued by: ' + certificate.issuingAuthority, { align: 'center' });
     doc.text('Date: ' + new Date(certificate.issuedAt).toLocaleDateString(), { align: 'center' });
 
     doc.end();

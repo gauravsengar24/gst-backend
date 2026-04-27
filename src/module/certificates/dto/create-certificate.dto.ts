@@ -12,7 +12,7 @@ export class CreateCertificateDto {
   @ApiProperty({ example: 'CertifyMe' })
   @IsNotEmpty()
   @IsString()
-  issuer!: string;
+  issuingAuthority!: string;
 
   @ApiProperty({ example: '2026-04-13T00:00:00Z', required: false, description: 'Issue date; auto-generated if omitted' })
   @IsOptional()

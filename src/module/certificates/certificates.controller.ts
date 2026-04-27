@@ -33,7 +33,7 @@ export class CertificatesController {
       properties: {
         file: { type: 'string', format: 'binary', description: 'CSV file with candidate data' },
         title: { type: 'string' },
-        issuer: { type: 'string' },
+        issuingAuthority: { type: 'string' },
         description: { type: 'string' },
         eventId: { type: 'string' },
         issuedAt: { type: 'string' },

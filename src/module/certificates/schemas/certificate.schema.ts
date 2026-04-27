@@ -44,7 +44,7 @@ export class Certificate {
 
   @ApiProperty({ example: 'MST Blockchain' })
   @Prop({ required: true })
-  issuer!: string;
+  issuingAuthority!: string;
 
   @ApiProperty({ example: '2026-04-22T00:00:00.000Z' })
   @Prop({ type: Date, default: Date.now })

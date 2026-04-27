@@ -28,6 +28,7 @@ export class DashboardService {
       certificateTypes,
       recentActivity,
       events,
+      typeStats,
     ] = await Promise.all([
       this.certificateModel.countDocuments(query),
       this.eventModel.countDocuments(),
@@ -35,7 +36,29 @@ export class DashboardService {
       this.certificateModel.distinct('candidates.type', query),
       this.certificateModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
       this.eventModel.find().sort({ createdAt: -1 }).exec(),
+      this.certificateModel.aggregate([
+        { $unwind: '$candidates' },
+        {
+          $group: {
+            _id: {
+              eventId: '$eventId',
+              type: '$candidates.type'
+            },
+            count: { $sum: 1 }
+          }
+        }
+      ])
     ]);
+
+    const eventTypeCounts: Record<string, Record<string, number>> = {};
+    typeStats.forEach(stat => {
+      const eId = stat._id.eventId || 'no-event';
+      const type = stat._id.type;
+      if (!eventTypeCounts[eId]) {
+        eventTypeCounts[eId] = {};
+      }
+      eventTypeCounts[eId][type] = stat.count;
+    });
 
     return {
       stats: {
@@ -50,14 +73,16 @@ export class DashboardService {
         title: event.title,
         date: event.date,
         place: event.place,
-        description: event.description
+        description: event.description,
+        typeCounts: eventTypeCounts[event._id.toString()] || {}
       })),
       recentActivity: {
         data: recentActivity.map(cert => ({
           id: cert._id,
           title: cert.title,
           date: cert.issuedAt,
-          organization: cert.issuer,
+          organization: cert.issuingAuthority,
+          description: cert.description,
           type: cert.candidates?.[0]?.type || 'N/A'
         })),
         pagination: {

@@ -22,7 +22,7 @@ export class UsersService {
       return {
         _id: cert._id,
         title: cert.title,
-        issuer: cert.issuer,
+        issuingAuthority: cert.issuingAuthority,
         issuedAt: cert.issuedAt,
         description: cert.description,
         eventId: cert.eventId,
