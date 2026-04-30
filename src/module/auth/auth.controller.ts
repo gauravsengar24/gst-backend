@@ -16,7 +16,7 @@ export class AuthController {
   @ApiOperation({ summary: 'User login' })
   @ApiBody({ type: LoginDto, description: 'Login credentials' })
   @ApiResponse({ status: 200, description: 'Login successful, access_token set in cookie' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 401, description: 'Wrong email or password' })
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
     const result = await this.authService.login(loginDto);
     response.cookie('access_token', result.access_token, {

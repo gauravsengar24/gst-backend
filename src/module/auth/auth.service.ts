@@ -19,10 +19,14 @@ export class AuthService {
     const { email, password } = loginDto;
     const user = await this.userModel.findOne({ email });
 
-    const isPasswordValid = user ? await bcrypt.compare(password, user.password) : false;
+    if (!user) {
+      throw new UnauthorizedException('Wrong email');
+    }
 
-    if (!user || !isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Wrong password');
     }
 
     const payload = { email: user.email, sub: user._id, role: user.role };
