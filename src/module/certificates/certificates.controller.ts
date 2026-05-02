@@ -87,6 +87,10 @@ export class CertificatesController {
   @ApiOperation({ summary: 'Download certificate as PDF' })
   @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
   @ApiQuery({ name: 'name', required: false, description: 'Candidate name to appear on certificate' })
+  @ApiResponse({ status: 200, description: 'PDF file streamed successfully' })
+  @ApiResponse({ status: 404, description: 'Certificate not found' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
   async downloadCertificate(
     @Param('id') id: string,
     @Query('name') name: string,
@@ -106,6 +110,8 @@ export class CertificatesController {
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: '10' })
   @ApiQuery({ name: 'search', required: false, description: 'Search keyword' })
   @ApiResponse({ status: 200, description: 'List of certificates' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
   findAll(
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
@@ -119,6 +125,8 @@ export class CertificatesController {
   @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
   @ApiResponse({ status: 200, description: 'Certificate found' })
   @ApiResponse({ status: 404, description: 'Certificate not found' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
   findOne(@Param('id') id: string) {
     return this.certificatesService.findOne(id);
   }
@@ -129,6 +137,8 @@ export class CertificatesController {
   @ApiBody({ type: UpdateCertificateDto, description: 'Certificate data to update' })
   @ApiResponse({ status: 200, description: 'Certificate updated successfully' })
   @ApiResponse({ status: 404, description: 'Certificate not found' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
   update(@Param('id') id: string, @Body() updateCertificateDto: UpdateCertificateDto) {
     return this.certificatesService.update(id, updateCertificateDto);
   }
@@ -138,6 +148,8 @@ export class CertificatesController {
   @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
   @ApiResponse({ status: 200, description: 'Certificate deleted successfully' })
   @ApiResponse({ status: 404, description: 'Certificate not found' })
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string) {
     return this.certificatesService.remove(id);
   }

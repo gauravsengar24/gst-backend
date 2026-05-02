@@ -15,6 +15,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Change user password' })
   @ApiBody({ type: ChangePasswordDto })
   @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({ status: 401, description: 'Current password does not match' })
   @ApiResponse({ status: 404, description: 'User not found' })
   changePassword(@Req() req: any, @Body() changePasswordDto: ChangePasswordDto) {
     return this.adminService.changePassword(req.user.email, changePasswordDto);

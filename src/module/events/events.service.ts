@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -50,15 +50,33 @@ export class EventsService {
     };
   }
 
-  findOne(id: string) {
-    return this.eventModel.findById(id).exec();
+  async findOne(id: string) {
+    const event = await this.eventModel.findById(id).exec();
+
+    if (!event) {
+      throw new NotFoundException(`Event with id ${id} not found`);
+    }
+
+    return event;
   }
 
-  update(id: string, updateEventDto: UpdateEventDto) {
-    return this.eventModel.findByIdAndUpdate(id, updateEventDto, { new: true }).exec();
+  async update(id: string, updateEventDto: UpdateEventDto) {
+    const updated = await this.eventModel.findByIdAndUpdate(id, updateEventDto, { new: true }).exec();
+
+    if (!updated) {
+      throw new NotFoundException(`Event with id ${id} not found`);
+    }
+
+    return updated;
   }
 
-  remove(id: string) {
-    return this.eventModel.findByIdAndDelete(id).exec();
+  async remove(id: string) {
+    const deleted = await this.eventModel.findByIdAndDelete(id).exec();
+
+    if (!deleted) {
+      throw new NotFoundException(`Event with id ${id} not found`);
+    }
+
+    return { message: 'Event deleted successfully', success: true };
   }
 }

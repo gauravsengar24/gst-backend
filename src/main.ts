@@ -24,7 +24,6 @@ async function bootstrap() {
     .setTitle('My API')
     .setDescription('API documentation')
     .setVersion('1.0')
-    .addBearerAuth()
     .addBearerAuth(
       {
         type: 'http',

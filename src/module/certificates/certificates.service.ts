@@ -196,16 +196,34 @@ export class CertificatesService {
     };
   }
 
-  findOne(id: string) {
-    return this.certificateModel.findById(id).exec();
+  async findOne(id: string) {
+    const certificate = await this.certificateModel.findById(id).exec();
+
+    if (!certificate) {
+      throw new NotFoundException(`Certificate with id ${id} not found`);
+    }
+
+    return certificate;
   }
 
-  update(id: string, updateCertificateDto: UpdateCertificateDto) {
-    return this.certificateModel.findByIdAndUpdate(id, updateCertificateDto, { new: true }).exec();
+  async update(id: string, updateCertificateDto: UpdateCertificateDto) {
+    const updated = await this.certificateModel.findByIdAndUpdate(id, updateCertificateDto, { new: true }).exec();
+
+    if (!updated) {
+      throw new NotFoundException(`Certificate with id ${id} not found`);
+    }
+
+    return updated;
   }
 
-  remove(id: string) {
-    return this.certificateModel.findByIdAndDelete(id).exec();
+  async remove(id: string) {
+    const deleted = await this.certificateModel.findByIdAndDelete(id).exec();
+
+    if (!deleted) {
+      throw new NotFoundException(`Certificate with id ${id} not found`);
+    }
+
+    return { message: 'Certificate deleted successfully', success: true };
   }
 
   async addCandidates(id: string, candidates: CreateCandidateDto[]) {
