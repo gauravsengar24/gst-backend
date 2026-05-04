@@ -12,7 +12,7 @@ export class UsersService {
   async getCertificatesByWallet(walletAddress: string) {
     const certificates = await this.certificateModel.find({
       'candidates.walletAddress': { $regex: new RegExp(`^${walletAddress}$`, 'i') }
-    }).exec();
+    }).sort({ createdAt: -1 }).exec();
 
     return certificates.map(cert => {
       const candidateData = cert.candidates?.find(

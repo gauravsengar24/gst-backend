@@ -39,8 +39,4 @@ export class CreateCertificateDto {
   @ApiProperty({ example: 10, required: false })
   @IsOptional()
   bulkCount?: number;
-
-  @ApiProperty({ example: true, required: false })
-  @IsOptional()
-  generatePlaceholders?: boolean;
 }

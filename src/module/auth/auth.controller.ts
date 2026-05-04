@@ -40,7 +40,7 @@ export class AuthController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all users' })
+  @ApiOperation({ summary: 'Get all users (sorted by latest first)' })
   @ApiResponse({ status: 200, description: 'List of all users (passwords excluded)' })
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)

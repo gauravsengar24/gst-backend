@@ -22,7 +22,7 @@ export class AdminController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all admins (users)' })
+  @ApiOperation({ summary: 'Get all admins (users) (sorted by latest first)' })
   @ApiResponse({ status: 200, description: 'List of all users' })
   findAll() {
     return this.adminService.findAll();

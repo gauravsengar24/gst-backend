@@ -35,7 +35,7 @@ export class EventsService {
     }
 
     const [data, total] = await Promise.all([
-      this.eventModel.find(query).skip(skip).limit(limit).exec(),
+      this.eventModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
       this.eventModel.countDocuments(query)
     ]);
 

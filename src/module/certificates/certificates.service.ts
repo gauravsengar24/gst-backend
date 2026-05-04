@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import * as PDFDocument from 'pdfkit';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { CreateCandidateDto } from '../candidates/dto/create-candidate.dto';
 import { Certificate, CertificateDocument } from './schemas/certificate.schema';
+import { MintLog, MintLogDocument } from './schemas/mint-log.schema';
 import { MetadataService } from '../metadata/metadata.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import * as fs from 'fs';
@@ -17,30 +18,19 @@ import { Readable } from 'stream';
 export class CertificatesService {
   constructor(
     @InjectModel(Certificate.name) private certificateModel: Model<CertificateDocument>,
+    @InjectModel(MintLog.name) private mintLogModel: Model<MintLogDocument>,
     private metadataService: MetadataService,
     private blockchainService: BlockchainService,
   ) {}
 
-  async create(createCertificateDto: CreateCertificateDto) {
-    const { candidates = [], bulkCount = 0, generatePlaceholders, description, issuingAuthority, ...rest } = createCertificateDto;
+  async create(createCertificateDto: CreateCertificateDto, mintType: 'single' | 'bulk' = 'single') {
+    const { candidates = [], description, issuingAuthority, ...rest } = createCertificateDto;
     
-    let finalCandidates = [...candidates];
-    
-    if (generatePlaceholders && bulkCount > 0) {
-      const placeholders = Array.from({ length: bulkCount }, (_, i) => ({
-        name: `Candidate ${i + 1}`,
-        email: '',
-        walletAddress: '',
-        type: 'Participation'
-      }));
-      finalCandidates = [...finalCandidates, ...placeholders];
-    }
-
     const createdCertificate = new this.certificateModel({
       ...rest,
       description,
       issuingAuthority,
-      candidates: finalCandidates
+      candidates
     });
     
     const savedCertificate = await createdCertificate.save();
@@ -54,22 +44,39 @@ export class CertificatesService {
         { returnDocument: 'after' }
       ).exec();
 
-      return this.uploadToIpfs(savedCertificate._id.toString());
+      return this.uploadToIpfs(savedCertificate._id.toString(), mintType);
     }
 
     return savedCertificate;
   }
 
-  async uploadToIpfs(id: string) {
+  async uploadToIpfs(id: string, mintType: 'single' | 'bulk' = 'single') {
     const certificate = await this.certificateModel.findById(id).exec();
     if (!certificate) {
       throw new NotFoundException('Certificate not found');
     }
 
+    const certObjectId = new Types.ObjectId(id);
     const updatedCandidates: any[] = [];
+
     for (const candidate of certificate.candidates || []) {
+      // Already minted or no local image — skip
       if (!candidate.localImagePath || candidate.ipfsHash) {
         updatedCandidates.push(candidate);
+        await this.mintLogModel.create({
+          certificateId: certObjectId,
+          certificateTitle: certificate.title,
+          eventId: certificate.eventId,
+          mintType,
+          candidateName: candidate.name,
+          candidateEmail: candidate.email,
+          walletAddress: candidate.walletAddress,
+          status: 'skipped',
+          ipfsImageHash: candidate.ipfsHash,
+          ipfsMetadataUrl: candidate.metadataUrl,
+          tokenId: candidate.tokenId,
+          transactionHash: candidate.transactionHash,
+        });
         continue;
       }
       
@@ -78,6 +85,17 @@ export class CertificatesService {
         if (!fs.existsSync(imagePath)) {
           console.error(`Local image not found for upload: ${imagePath}`);
           updatedCandidates.push(candidate);
+          await this.mintLogModel.create({
+            certificateId: certObjectId,
+            certificateTitle: certificate.title,
+            eventId: certificate.eventId,
+            mintType,
+            candidateName: candidate.name,
+            candidateEmail: candidate.email,
+            walletAddress: candidate.walletAddress,
+            status: 'failed',
+            errorMessage: `Local image file not found at path: ${imagePath}`,
+          });
           continue;
         }
         
@@ -108,22 +126,55 @@ export class CertificatesService {
           await new Promise(resolve => setTimeout(resolve, 3000));
         }
 
-        updatedCandidates.push({ 
+        const mintedCandidate = {
           name: candidate.name,
           email: candidate.email,
           walletAddress: candidate.walletAddress,
           type: candidate.type,
+          localImagePath: candidate.localImagePath,
           ipfsHash: ipfsData.imageHash,
           metadataUrl: ipfsData.metadataUrl,
           tokenId: txHash ? tokenId : undefined,
-          transactionHash: txHash ? `https://www.mstscan.com/tx/${txHash}` : undefined
+          transactionHash: txHash ? `https://www.mstscan.com/tx/${txHash}` : undefined,
+        };
+
+        updatedCandidates.push(mintedCandidate);
+
+        // ── Success log ─────────────────────────────────────────────────────
+        await this.mintLogModel.create({
+          certificateId: certObjectId,
+          certificateTitle: certificate.title,
+          eventId: certificate.eventId,
+          mintType,
+          candidateName: candidate.name,
+          candidateEmail: candidate.email,
+          walletAddress: candidate.walletAddress,
+          status: 'success',
+          ipfsImageHash: ipfsData.imageHash,
+          ipfsMetadataUrl: ipfsData.metadataUrl,
+          tokenId: txHash ? tokenId : undefined,
+          transactionHash: mintedCandidate.transactionHash,
         });
+
       } catch (error) {
         await this.certificateModel.findByIdAndUpdate(
           id,
           { $set: { candidates: [...updatedCandidates, ...(certificate.candidates || []).slice(updatedCandidates.length)] } },
           { returnDocument: 'after' }
         ).exec();
+
+        // ── Failure log ──────────────────────────────────────────────────────
+        await this.mintLogModel.create({
+          certificateId: certObjectId,
+          certificateTitle: certificate.title,
+          eventId: certificate.eventId,
+          mintType,
+          candidateName: candidate.name,
+          candidateEmail: candidate.email,
+          walletAddress: candidate.walletAddress,
+          status: 'failed',
+          errorMessage: (error as any).message,
+        });
         
         console.error(`Failed to process candidate ${candidate.name}:`, error);
         throw new BadRequestException(`Processing failed at candidate ${candidate.name}: ${(error as any).message}`);
@@ -181,7 +232,7 @@ export class CertificatesService {
     }
 
     const [data, total] = await Promise.all([
-      this.certificateModel.find(query).skip(skip).limit(limit).exec(),
+      this.certificateModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
       this.certificateModel.countDocuments(query)
     ]);
 
@@ -240,7 +291,7 @@ export class CertificatesService {
       { new: true }
     ).exec();
 
-    return this.uploadToIpfs(id);
+    return this.uploadToIpfs(id, 'single');
   }
 
   async generatePdf(id: string, candidateName?: string) {
@@ -280,7 +331,30 @@ export class CertificatesService {
     return doc;
   }
 
-  async createWithCsv(createCertificateDto: CreateCertificateDto, file: Express.Multer.File) {
+  async getLocalCertificatePath(candidateId: string) {
+    const certificate = await this.certificateModel.findOne({
+      'candidates._id': candidateId
+    }).exec();
+
+    if (!certificate) {
+      throw new NotFoundException('Candidate or Certificate not found');
+    }
+
+    const candidate = certificate.candidates?.find(c => (c as any)._id.toString() === candidateId);
+    
+    if (!candidate || !candidate.localImagePath) {
+      throw new NotFoundException('Local certificate image not found for this candidate');
+    }
+
+    const fullPath = path.join(process.cwd(), candidate.localImagePath);
+    if (!fs.existsSync(fullPath)) {
+      throw new NotFoundException('Certificate file not found on disk');
+    }
+
+    return fullPath;
+  }
+
+  async createWithCsv(createCertificateDto: CreateCertificateDto, file: Express.Multer.File, mintType: 'single' | 'bulk' = 'single') {
     const candidates: CreateCandidateDto[] = [];
     const requiredHeaders = ['name', 'walletAddress'];
     let headers: string[] = [];
@@ -331,6 +405,6 @@ export class CertificatesService {
     return this.create({
       ...createCertificateDto,
       candidates
-    });
+    }, mintType);
   }
 }

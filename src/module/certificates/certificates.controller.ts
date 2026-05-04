@@ -48,7 +48,7 @@ export class CertificatesController {
     @Body() createCertificateDto: CreateCertificateDto,
     @UploadedFile() file: Express.Multer.File
   ) {
-    return this.certificatesService.createWithCsv(createCertificateDto, file);
+    return this.certificatesService.createWithCsv(createCertificateDto, file, 'bulk');
   }
 
   @Post(':id/upload')
@@ -58,7 +58,7 @@ export class CertificatesController {
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   upload(@Param('id') id: string) {
-    return this.certificatesService.uploadToIpfs(id);
+    return this.certificatesService.uploadToIpfs(id, 'single');
   }
 
   @Post(':id/issue')
@@ -68,7 +68,7 @@ export class CertificatesController {
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   issueCertificate(@Param('id') id: string) {
-    return this.certificatesService.uploadToIpfs(id);
+    return this.certificatesService.uploadToIpfs(id, 'single');
   }
 
   @Post(':id/candidates')
@@ -84,28 +84,22 @@ export class CertificatesController {
   }
 
   @Get(':id/download')
-  @ApiOperation({ summary: 'Download certificate as PDF' })
-  @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
-  @ApiQuery({ name: 'name', required: false, description: 'Candidate name to appear on certificate' })
-  @ApiResponse({ status: 200, description: 'PDF file streamed successfully' })
-  @ApiResponse({ status: 404, description: 'Certificate not found' })
+  @ApiOperation({ summary: 'Download actual local certificate image' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Unique ID of the candidate' })
+  @ApiResponse({ status: 200, description: 'Certificate image file downloaded successfully' })
+  @ApiResponse({ status: 404, description: 'Certificate or local file not found' })
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   async downloadCertificate(
     @Param('id') id: string,
-    @Query('name') name: string,
     @Res() res: Response
   ) {
-    const stream = await this.certificatesService.generatePdf(id, name);
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename=certificate_${name || 'recipient'}.pdf`,
-    });
-    stream.pipe(res);
+    const filePath = await this.certificatesService.getLocalCertificatePath(id);
+    res.download(filePath);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all certificates with pagination and search' })
+  @ApiOperation({ summary: 'Get all certificates with pagination and search (sorted by latest first)' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number', example: '1' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: '10' })
   @ApiQuery({ name: 'search', required: false, description: 'Search keyword' })

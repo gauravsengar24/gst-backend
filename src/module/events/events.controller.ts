@@ -22,7 +22,7 @@ export class EventsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all events with pagination and search' })
+  @ApiOperation({ summary: 'Get all events with pagination and search (sorted by latest first)' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number', example: '1' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: '10' })
   @ApiQuery({ name: 'search', required: false, description: 'Search keyword' })

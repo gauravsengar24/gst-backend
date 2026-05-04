@@ -36,7 +36,7 @@ export class AdminService {
   }
 
   findAll() {
-    return this.userModel.find().select('-password').exec();
+    return this.userModel.find().sort({ createdAt: -1 }).select('-password').exec();
   }
 
   findOne(id: string) {
