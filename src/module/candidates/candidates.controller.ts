@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { CandidatesService } from './candidates.service';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
 import { UpdateCandidateDto } from './dto/update-candidate.dto';
@@ -10,6 +10,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class CandidatesController {
   constructor(private readonly candidatesService: CandidatesService) {}
 
+  @ApiExcludeEndpoint()
   @Post()
   @ApiOperation({ summary: 'Create a new candidate' })
   @ApiBody({ type: CreateCandidateDto, description: 'Candidate data to create' })
@@ -41,6 +42,7 @@ export class CandidatesController {
     return this.candidatesService.findOne(id);
   }
 
+  @ApiExcludeEndpoint()
   @Patch(':id')
   @ApiOperation({ summary: 'Update candidate by ID' })
   @ApiParam({ name: 'id', type: 'string', description: 'Candidate ID' })
@@ -53,6 +55,7 @@ export class CandidatesController {
     return this.candidatesService.update(id, updateCandidateDto);
   }
 
+  @ApiExcludeEndpoint()
   @Delete(':id')
   @ApiOperation({ summary: 'Delete candidate by ID' })
   @ApiParam({ name: 'id', type: 'string', description: 'Candidate ID' })

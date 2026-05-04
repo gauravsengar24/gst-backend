@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Query, Res, UseGuards } from '@nestjs/common';
 import { MetadataService } from './metadata.service';
 import { Response } from 'express';
-import { ApiTags, ApiOperation, ApiBody, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBody, ApiQuery, ApiResponse, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { UploadMetadataDto } from './dto/upload-metadata.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -10,6 +10,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class MetadataController {
   constructor(private readonly metadataService: MetadataService) {}
 
+  @ApiExcludeEndpoint()
   @Get('test-overlay')
   @ApiOperation({ summary: 'Test certificate overlay with name' })
   @ApiQuery({ name: 'name', required: true, description: 'Candidate name to overlay on the certificate template' })
@@ -27,6 +28,7 @@ export class MetadataController {
     res.send(buffer);
   }
 
+  @ApiExcludeEndpoint()
   @Post('upload')
   @ApiOperation({ summary: 'Generate certificate image and upload metadata to IPFS via Pinata' })
   @ApiBody({ type: UploadMetadataDto })

@@ -1,5 +1,5 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiParam, ApiResponse, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 
 @ApiTags('Users')
@@ -7,6 +7,7 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @ApiExcludeEndpoint()
   @Get('certificates/:walletAddress')
   @ApiOperation({ summary: 'Get certificates by wallet address' })
   @ApiParam({ name: 'walletAddress', type: 'string', description: 'Blockchain wallet address of the user' })

@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Res, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiQuery, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { CertificatesService } from './certificates.service';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
@@ -51,6 +51,7 @@ export class CertificatesController {
     return this.certificatesService.createWithCsv(createCertificateDto, file, 'bulk');
   }
 
+  @ApiExcludeEndpoint()
   @Post(':id/upload')
   @ApiOperation({ summary: 'Upload generated images to IPFS and mint NFTs' })
   @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
@@ -61,6 +62,7 @@ export class CertificatesController {
     return this.certificatesService.uploadToIpfs(id, 'single');
   }
 
+  @ApiExcludeEndpoint()
   @Post(':id/issue')
   @ApiOperation({ summary: 'Issue certificate: Upload images to IPFS and mint NFTs for all candidates' })
   @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
@@ -71,6 +73,7 @@ export class CertificatesController {
     return this.certificatesService.uploadToIpfs(id, 'single');
   }
 
+  @ApiExcludeEndpoint()
   @Post(':id/candidates')
   @ApiOperation({ summary: 'Add candidates to an existing certificate' })
   @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
@@ -125,6 +128,7 @@ export class CertificatesController {
     return this.certificatesService.findOne(id);
   }
 
+  @ApiExcludeEndpoint()
   @Patch(':id')
   @ApiOperation({ summary: 'Update certificate by ID' })
   @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
@@ -137,6 +141,7 @@ export class CertificatesController {
     return this.certificatesService.update(id, updateCertificateDto);
   }
 
+  @ApiExcludeEndpoint()
   @Delete(':id')
   @ApiOperation({ summary: 'Delete certificate by ID' })
   @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
