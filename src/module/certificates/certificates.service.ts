@@ -7,25 +7,60 @@ import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { CreateCandidateDto } from '../candidates/dto/create-candidate.dto';
 import { Certificate, CertificateDocument } from './schemas/certificate.schema';
 import { MintLog, MintLogDocument } from './schemas/mint-log.schema';
+import { Event, EventDocument } from '../events/schemas/event.schema';
 import { MetadataService } from '../metadata/metadata.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as csv from 'csv-parser';
 import { Readable } from 'stream';
+import { isAddress, getAddress } from 'ethers';
 
 @Injectable()
 export class CertificatesService {
   constructor(
     @InjectModel(Certificate.name) private certificateModel: Model<CertificateDocument>,
     @InjectModel(MintLog.name) private mintLogModel: Model<MintLogDocument>,
+    @InjectModel(Event.name) private eventModel: Model<EventDocument>,
     private metadataService: MetadataService,
     private blockchainService: BlockchainService,
   ) {}
 
   async create(createCertificateDto: CreateCertificateDto, mintType: 'single' | 'bulk' = 'single') {
     const { candidates = [], description, issuingAuthority, ...rest } = createCertificateDto;
+
+    for (const candidate of candidates) {
+      if (candidate.walletAddress) {
+        const wallet = String(candidate.walletAddress);
+        const lowerWallet = wallet.toLowerCase();
+        if (isAddress(wallet)) {
+          candidate.walletAddress = getAddress(wallet);
+        } else if (isAddress(lowerWallet)) {
+          candidate.walletAddress = getAddress(lowerWallet);
+        } else {
+          throw new BadRequestException(`Invalid wallet address format for candidate ${candidate.name}: ${wallet}`);
+        }
+      }
+    }
     
+    if (rest.eventId) {
+      const existingCertificate = await this.certificateModel.findOne({ eventId: rest.eventId }).exec();
+      if (existingCertificate) {
+        if (candidates.length > 0) {
+          const updatedCandidates = await this.generateLocalImages(existingCertificate, candidates);
+          
+          await this.certificateModel.findByIdAndUpdate(
+            existingCertificate._id,
+            { $push: { candidates: { $each: updatedCandidates } } },
+            { new: true }
+          ).exec();
+
+          return this.uploadToIpfs(existingCertificate._id.toString(), mintType);
+        }
+        return existingCertificate;
+      }
+    }
+
     const createdCertificate = new this.certificateModel({
       ...rest,
       description,
@@ -189,11 +224,19 @@ export class CertificatesService {
   }
 
   private async generateLocalImages(certificate: CertificateDocument, candidates: any[]) {
+    let baseImagePath: string | undefined;
+    if (certificate.eventId && Types.ObjectId.isValid(certificate.eventId)) {
+      const event = await this.eventModel.findById(certificate.eventId).exec();
+      if (event && event.baseCertificatePath) {
+        baseImagePath = event.baseCertificatePath;
+      }
+    }
+
     return Promise.all(
       candidates.map(async (candidate) => {
         if (!candidate.name) return candidate;
         
-        const imageBuffer = await this.metadataService.generateCertificateImage(candidate.name);
+        const imageBuffer = await this.metadataService.generateCertificateImage(candidate.name, baseImagePath);
         const localImagePath = await this.saveCertificateImage(certificate._id.toString(), candidate.name, imageBuffer);
         
         return { 
@@ -236,8 +279,23 @@ export class CertificatesService {
       this.certificateModel.countDocuments(query)
     ]);
 
+    const eventIds = [...new Set(data.map(cert => cert.eventId).filter((id): id is string => !!id && Types.ObjectId.isValid(id)))];
+    let eventMap = new Map();
+    if (eventIds.length > 0) {
+      const events = await this.eventModel.find({ _id: { $in: eventIds } }).exec();
+      eventMap = new Map(events.map(e => [e._id.toString(), e.name]));
+    }
+
+    const resultData = data.map(cert => {
+      const certObj = cert.toObject();
+      if (certObj.eventId && eventMap.has(certObj.eventId)) {
+        (certObj as any).eventName = eventMap.get(certObj.eventId);
+      }
+      return certObj;
+    });
+
     return {
-      data,
+      data: resultData,
       pagination: {
         total,
         page,
@@ -254,7 +312,15 @@ export class CertificatesService {
       throw new NotFoundException(`Certificate with id ${id} not found`);
     }
 
-    return certificate;
+    const certObj = certificate.toObject();
+    if (certObj.eventId && Types.ObjectId.isValid(certObj.eventId)) {
+      const event = await this.eventModel.findById(certObj.eventId).exec();
+      if (event) {
+        (certObj as any).eventName = event.name;
+      }
+    }
+
+    return certObj;
   }
 
   async update(id: string, updateCertificateDto: UpdateCertificateDto) {
@@ -278,6 +344,21 @@ export class CertificatesService {
   }
 
   async addCandidates(id: string, candidates: CreateCandidateDto[]) {
+    // Validate and normalize wallet addresses
+    for (const candidate of candidates) {
+      if (candidate.walletAddress) {
+        const wallet = String(candidate.walletAddress);
+        const lowerWallet = wallet.toLowerCase();
+        if (isAddress(wallet)) {
+          candidate.walletAddress = getAddress(wallet);
+        } else if (isAddress(lowerWallet)) {
+          candidate.walletAddress = getAddress(lowerWallet);
+        } else {
+          throw new BadRequestException(`Invalid wallet address format for candidate ${candidate.name}: ${wallet}`);
+        }
+      }
+    }
+
     const certificate = await this.certificateModel.findById(id).exec();
     if (!certificate) {
       throw new NotFoundException('Certificate not found');

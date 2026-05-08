@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiQuery,ApiBearerAuth} from '@nestjs/swagger';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -11,14 +12,32 @@ export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
   @Post('create')
-  @ApiOperation({ summary: 'Create a new event' })
-  @ApiBody({ type: CreateEventDto, description: 'Event data to create' })
+  @ApiOperation({ summary: 'Create a new event with base certificate image' })
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file', 'title', 'name', 'date', 'place'],
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'Base certificate image' },
+        title: { type: 'string' },
+        name: { type: 'string' },
+        level: { type: 'string' },
+        description: { type: 'string' },
+        date: { type: 'string' },
+        place: { type: 'string' },
+      },
+    },
+  })
   @ApiResponse({ status: 201, description: 'Event created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid event data' })
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
-  create(@Body() createEventDto: CreateEventDto) {
-    return this.eventsService.create(createEventDto);
+  create(
+    @Body() createEventDto: CreateEventDto,
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    return this.eventsService.create(createEventDto, file);
   }
 
   @Get()

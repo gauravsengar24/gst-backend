@@ -22,6 +22,9 @@ export class Event {
 
   @Prop({ required: true })
   place!: string;
+
+  @Prop()
+  baseCertificatePath?: string;
 }
 
 export const EventSchema = SchemaFactory.createForClass(Event);

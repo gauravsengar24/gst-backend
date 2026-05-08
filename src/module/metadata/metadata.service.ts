@@ -5,6 +5,7 @@ import { Model } from 'mongoose';
 import { Certificate, CertificateDocument } from '../certificates/schemas/certificate.schema';
 import * as sharp from 'sharp';
 import * as path from 'path';
+import * as fs from 'fs';
 import axios from 'axios';
 import * as FormData from 'form-data';
 
@@ -15,26 +16,40 @@ export class MetadataService {
   constructor(
     private configService: ConfigService,
     @InjectModel(Certificate.name) private certificateModel: Model<CertificateDocument>,
-  ) {}
+  ) { }
 
   /**
    * Generates a certificate image with the candidate's name overlayed.
    */
-  async generateCertificateImage(name: string): Promise<Buffer> {
-    const width = 3508;
-    const height = 2480;
+  async generateCertificateImage(name: string, baseImagePath?: string): Promise<Buffer> {
+    let actualTemplate = this.templatePath;
+    if (baseImagePath) {
+      const templateToUse = path.join(process.cwd(), baseImagePath);
+      if (fs.existsSync(templateToUse)) {
+        actualTemplate = templateToUse;
+      } else {
+        console.warn(`Base image not found at ${templateToUse}. Falling back to default.`);
+      }
+    }
+
+    const metadata = await sharp(actualTemplate).metadata();
+    const width = metadata.width || 3508;
+    const height = metadata.height || 2480;
+
+    // Scale font size proportionally to the image height
+    const fontSize = Math.floor(140 * (height / 2480));
 
     const svgImage = `
       <svg width="${width}" height="${height}">
         <style>
-          .name { fill: #2c3e50; font-size: 140px; font-weight: 600; font-family: 'serif'; }
+          .name { fill: #2c3e50; font-size: ${fontSize}px; font-weight: 600; font-family: 'serif'; }
         </style>
         <text x="50%" y="46%" text-anchor="middle" class="name">${name.toUpperCase()}</text>
       </svg>
     `;
     const svgBuffer = Buffer.from(svgImage);
 
-    return sharp(this.templatePath)
+    return sharp(actualTemplate)
       .composite([{ input: svgBuffer, top: 0, left: 0 }])
       .jpeg({ quality: 90 })
       .toBuffer();
@@ -102,7 +117,7 @@ export class MetadataService {
         }]
       });
     }
-    
+
     return {
       imageHash,
       metadataHash: metadataResponse.IpfsHash,
@@ -117,7 +132,7 @@ export class MetadataService {
       throw new Error('PINATA_JWT is missing in configuration (.env)');
     }
 
-    const url = type === 'Image' 
+    const url = type === 'Image'
       ? 'https://api.pinata.cloud/pinning/pinFileToIPFS'
       : 'https://api.pinata.cloud/pinning/pinJSONToIPFS';
 

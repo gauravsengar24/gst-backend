@@ -1,17 +1,25 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { Event, EventDocument } from './schemas/event.schema';
+import { Certificate, CertificateDocument } from '../certificates/schemas/certificate.schema';
 
 @Injectable()
 export class EventsService {
   constructor(
     @InjectModel(Event.name) private eventModel: Model<EventDocument>,
+    @InjectModel(Certificate.name) private certificateModel: Model<CertificateDocument>,
   ) { }
 
-  async create(createEventDto: CreateEventDto) {
+  async create(createEventDto: CreateEventDto, file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Base certificate image file is required.');
+    }
+
     const { date, place } = createEventDto;
     
     const eventDate = new Date(date);
@@ -30,6 +38,21 @@ export class EventsService {
 
     const createdEvent = new this.eventModel(createEventDto);
     const savedEvent = await createdEvent.save();
+
+    if (file) {
+      const uploadDir = path.join(process.cwd(), 'uploads/events', savedEvent._id.toString());
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      const ext = path.extname(file.originalname) || '.jpg';
+      const fileName = `base_cert${ext}`;
+      const filePath = path.join(uploadDir, fileName);
+      fs.writeFileSync(filePath, file.buffer);
+      
+      savedEvent.baseCertificatePath = `uploads/events/${savedEvent._id.toString()}/${fileName}`;
+      await savedEvent.save();
+    }
+
     return {
       message: 'Event created successfully',
       event: savedEvent,
@@ -55,8 +78,32 @@ export class EventsService {
       this.eventModel.countDocuments(query)
     ]);
 
+    const eventIds = data.map(e => e._id.toString());
+    const certificates = await this.certificateModel.find({ eventId: { $in: eventIds } }, '_id eventId candidates').exec();
+    
+    const certsByEvent = new Map<string, { ids: string[], count: number }>();
+    for (const cert of certificates) {
+      if (!cert.eventId) continue;
+      if (!certsByEvent.has(cert.eventId)) {
+        certsByEvent.set(cert.eventId, { ids: [], count: 0 });
+      }
+      const eventData = certsByEvent.get(cert.eventId)!;
+      if (cert.candidates && Array.isArray(cert.candidates)) {
+        eventData.count += cert.candidates.length;
+        eventData.ids.push(...cert.candidates.map((c: any) => c._id?.toString()).filter(Boolean));
+      }
+    }
+
+    const resultData = data.map(event => {
+      const eventObj = event.toObject();
+      const certData = certsByEvent.get(event._id.toString());
+      (eventObj as any).candidateIds = certData?.ids || [];
+      (eventObj as any).totalCertificates = certData?.count || 0;
+      return eventObj;
+    });
+
     return {
-      data,
+      data: resultData,
       pagination: {
         total,
         page,
@@ -73,7 +120,21 @@ export class EventsService {
       throw new NotFoundException(`Event with id ${id} not found`);
     }
 
-    return event;
+    const certificates = await this.certificateModel.find({ eventId: id }, '_id candidates').exec();
+    const eventObj = event.toObject();
+    const candidateIds: string[] = [];
+    let count = 0;
+    for (const cert of certificates) {
+      if (cert.candidates && Array.isArray(cert.candidates)) {
+        count += cert.candidates.length;
+        candidateIds.push(...cert.candidates.map((c: any) => c._id?.toString()).filter(Boolean));
+      }
+    }
+    
+    (eventObj as any).candidateIds = candidateIds;
+    (eventObj as any).totalCertificates = count;
+
+    return eventObj;
   }
 
   async update(id: string, updateEventDto: UpdateEventDto) {
