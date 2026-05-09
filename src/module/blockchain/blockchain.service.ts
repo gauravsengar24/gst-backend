@@ -9,9 +9,10 @@ export class BlockchainService implements OnModuleInit {
   private contract!: ethers.Contract;
 
   private readonly ABI = [
-    'function safeMint(address to, uint256 tokenId, string memory uri) public',
+    'function safeMint(address to, string memory uri) public',
     'function symbol() public view returns (string memory)',
     'function owner() public view returns (address)',
+    'function bulkMint(address[] memory to, string[] memory uris) public'
   ];
 
   constructor(private configService: ConfigService) {}
@@ -39,7 +40,7 @@ export class BlockchainService implements OnModuleInit {
     try {
       const nonce = await this.wallet.getNonce('pending');
       
-      const tx = await this.contract.safeMint(to, tokenId, tokenURI, {
+      const tx = await this.contract.safeMint(to, tokenURI, {
         nonce: nonce
       });
       
@@ -47,6 +48,21 @@ export class BlockchainService implements OnModuleInit {
       return receipt.hash;
     } catch (error) {
       console.error('Minting failed:', error);
+      throw error;
+    }
+  }
+
+  async bulkMint(to: string[], uris: string[]) {
+    if (!this.contract) {
+      throw new Error('Blockchain service not initialized');
+    }
+    try {
+      const nonce = await this.wallet.getNonce('pending');
+      const tx = await this.contract.bulkMint(to, uris, { nonce });
+      const receipt = await tx.wait();
+      return receipt.hash;
+    } catch (error) {
+      console.error('Bulk minting failed:', error);
       throw error;
     }
   }

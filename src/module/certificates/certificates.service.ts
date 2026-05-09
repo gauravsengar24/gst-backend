@@ -106,7 +106,7 @@ export class CertificatesService {
           candidateName: candidate.name,
           candidateEmail: candidate.email,
           walletAddress: candidate.walletAddress,
-          status: 'skipped',
+          status: candidate.transactionHash ? 'success' : 'skipped',
           ipfsImageHash: candidate.ipfsHash,
           ipfsMetadataUrl: candidate.metadataUrl,
           tokenId: candidate.tokenId,
@@ -170,7 +170,7 @@ export class CertificatesService {
           ipfsHash: ipfsData.imageHash,
           metadataUrl: ipfsData.metadataUrl,
           tokenId: txHash ? tokenId : undefined,
-          transactionHash: txHash ? `https://www.mstscan.com/tx/${txHash}` : undefined,
+          transactionHash: txHash ? `https://www.testnet.mstscan.com/tx/${txHash}` : undefined,
         };
 
         updatedCandidates.push(mintedCandidate);
@@ -236,14 +236,17 @@ export class CertificatesService {
       candidates.map(async (candidate) => {
         if (!candidate.name) return candidate;
         
+        if (candidate.localImagePath) {
+          return candidate;
+        }
+
         const imageBuffer = await this.metadataService.generateCertificateImage(candidate.name, baseImagePath);
         const localImagePath = await this.saveCertificateImage(certificate._id.toString(), candidate.name, imageBuffer);
         
+        const candidateData = typeof candidate.toObject === 'function' ? candidate.toObject() : candidate;
+        
         return { 
-          name: candidate.name,
-          email: candidate.email,
-          walletAddress: candidate.walletAddress,
-          type: candidate.type,
+          ...candidateData,
           localImagePath
         };
       })
@@ -435,6 +438,38 @@ export class CertificatesService {
     return fullPath;
   }
 
+  private async processSingleCertificate(candidate: CreateCandidateDto, createCertificateDto: CreateCertificateDto) {
+    let baseImagePath: string | undefined;
+    if (createCertificateDto.eventId && Types.ObjectId.isValid(createCertificateDto.eventId)) {
+      const event = await this.eventModel.findById(createCertificateDto.eventId).exec();
+      if (event && event.baseCertificatePath) {
+        baseImagePath = event.baseCertificatePath;
+      }
+    }
+
+    // 1. Generate Image Buffer
+    const imageBuffer = await this.metadataService.generateCertificateImage(candidate.name, baseImagePath);
+
+    // 2. Upload to IPFS
+    const ipfsData = await this.metadataService.uploadToIpfs({
+      name: candidate.name,
+      description: createCertificateDto.description || '',
+      date: createCertificateDto.issuedAt ? new Date(createCertificateDto.issuedAt).toISOString() : new Date().toISOString(),
+      issuedBy: createCertificateDto.issuingAuthority,
+      title: createCertificateDto.title,
+      type: candidate.type,
+      imageBuffer,
+      walletAddress: candidate.walletAddress,
+      skipSave: true,
+    });
+
+    return {
+      ...candidate,
+      ipfsHash: ipfsData.imageHash,
+      metadataUrl: ipfsData.metadataUrl,
+    };
+  }
+
   async createWithCsv(createCertificateDto: CreateCertificateDto, file: Express.Multer.File, mintType: 'single' | 'bulk' = 'single') {
     const candidates: CreateCandidateDto[] = [];
     const requiredHeaders = ['name', 'walletAddress'];
@@ -463,10 +498,24 @@ export class CertificatesService {
           }
         })
         .on('data', (data) => {
+          let wallet = data.walletAddress || data.WalletAddress || data.wallet || '';
+          if (wallet) {
+            const strWallet = String(wallet);
+            const lowerWallet = strWallet.toLowerCase();
+            if (isAddress(strWallet)) {
+              wallet = getAddress(strWallet);
+            } else if (isAddress(lowerWallet)) {
+              wallet = getAddress(lowerWallet);
+            } else {
+              reject(new BadRequestException(`Invalid wallet address format for candidate ${data.name || data.Name}: ${strWallet}`));
+              return;
+            }
+          }
+          
           const candidate: CreateCandidateDto = {
             name: data.name || data.Name || data.candidateName || '',
             email: data.email || data.Email || '',
-            walletAddress: data.walletAddress || data.WalletAddress || data.wallet || '',
+            walletAddress: wallet,
             type: data.type || data.Type || 'Participation'
           };
           
@@ -482,10 +531,38 @@ export class CertificatesService {
       throw new BadRequestException(`CSV row count (${candidates.length}) does not match bulkCount (${createCertificateDto.bulkCount})`);
     }
 
+    // 2. Parallelize Generation and Upload
+    const processedData = await Promise.all(
+      candidates.map(async (candidate) => {
+        return this.processSingleCertificate(candidate, createCertificateDto);
+      })
+    );
+
+    // 3. Final Batch Minting
+    const validCandidates = processedData.filter(c => c.walletAddress);
+    let txHash = '';
+
+    if (validCandidates.length > 0) {
+      const addresses = validCandidates.map(c => c.walletAddress);
+      const uris = validCandidates.map(c => c.metadataUrl);
+      try {
+        txHash = await this.blockchainService.bulkMint(addresses, uris);
+        // assign txHash and pseudo tokenId
+        processedData.forEach(c => {
+          if (c.walletAddress) {
+            (c as any).transactionHash = `https://www.testnet.mstscan.com/tx/${txHash}`;
+            (c as any).tokenId = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000);
+          }
+        });
+      } catch (err) {
+        console.error('Bulk minting failed:', err);
+      }
+    }
+
     // Create certificate with parsed candidates
     return this.create({
       ...createCertificateDto,
-      candidates
+      candidates: processedData
     }, mintType);
   }
 }
