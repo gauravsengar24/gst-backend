@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsEmail } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsEmail, IsEnum } from 'class-validator';
+import { CertificateType } from '../../certificates/schemas/certificate.schema';
 
 export class CreateCandidateDto {
   @ApiProperty({ example: 'John Doe' })
@@ -16,9 +17,9 @@ export class CreateCandidateDto {
   @IsString()
   walletAddress!: string;
 
-  @ApiProperty({ example: 'Participation' })
+  @ApiProperty({ enum: CertificateType, example: CertificateType.Participation })
   @IsNotEmpty()
-  @IsString()
-  type!: string;
+  @IsEnum(CertificateType, { message: 'Type must be one of: Participation, Appreciation, Training, Achievement' })
+  type!: CertificateType;
 }
 

@@ -4,6 +4,13 @@ import { Document } from 'mongoose';
 
 export type CertificateDocument = Certificate & Document;
 
+export enum CertificateType {
+  Participation = 'Participation',
+  Appreciation = 'Appreciation',
+  Training = 'Training',
+  Achievement = 'Achievement',
+}
+
 @Schema()
 export class Candidate {
   @ApiProperty({ example: '662768... (Candidate Object ID)' })
@@ -21,9 +28,9 @@ export class Candidate {
   @Prop({ required: true })
   walletAddress!: string;
 
-  @ApiProperty({ example: 'Participation' })
-  @Prop({ required: true })
-  type!: string;
+  @ApiProperty({ enum: CertificateType, example: CertificateType.Participation })
+  @Prop({ required: true, enum: CertificateType })
+  type!: CertificateType;
 
   @ApiProperty({ required: false })
   @Prop()

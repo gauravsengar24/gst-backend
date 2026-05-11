@@ -5,7 +5,7 @@ import * as PDFDocument from 'pdfkit';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { CreateCandidateDto } from '../candidates/dto/create-candidate.dto';
-import { Certificate, CertificateDocument } from './schemas/certificate.schema';
+import { Certificate, CertificateDocument, CertificateType } from './schemas/certificate.schema';
 import { MintLog, MintLogDocument } from './schemas/mint-log.schema';
 import { Event, EventDocument } from '../events/schemas/event.schema';
 import { MetadataService } from '../metadata/metadata.service';
@@ -399,7 +399,7 @@ export class CertificatesService {
     });
 
     const candidate = certificate.candidates?.find(c => c.name === candidateName);
-    const type = candidate?.type || 'Participation';
+    const type = candidate?.type || CertificateType.Participation;
     const name = candidateName || 'Recipient';
 
     doc.rect(20, 20, doc.page.width - 40, doc.page.height - 40).stroke();
@@ -552,11 +552,17 @@ export class CertificatesService {
             }
           }
           
+          const parsedType = data.type || data.Type || CertificateType.Participation;
+          if (!Object.values(CertificateType).includes(parsedType as CertificateType)) {
+            reject(new BadRequestException(`Invalid certificate type '${parsedType}' for candidate ${data.name || data.Name || data.candidateName}. Must be one of: ${Object.values(CertificateType).join(', ')}`));
+            return;
+          }
+          
           const candidate: CreateCandidateDto = {
             name: data.name || data.Name || data.candidateName || '',
             email: data.email || data.Email || '',
             walletAddress: wallet,
-            type: data.type || data.Type || 'Participation'
+            type: parsedType as CertificateType
           };
           
           if (candidate.name) {
