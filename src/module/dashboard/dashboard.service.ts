@@ -51,13 +51,23 @@ export class DashboardService {
     ]);
 
     const eventTypeCounts: Record<string, Record<string, number>> = {};
+    const overallTypeCounts: Record<string, number> = {};
+
     typeStats.forEach(stat => {
       const eId = stat._id.eventId || 'no-event';
-      const type = stat._id.type;
+      const type = stat._id.type || 'Unknown';
+      
       if (!eventTypeCounts[eId]) {
         eventTypeCounts[eId] = {};
       }
       eventTypeCounts[eId][type] = stat.count;
+
+      if (!eventId || eId === eventId) {
+        if (!overallTypeCounts[type]) {
+          overallTypeCounts[type] = 0;
+        }
+        overallTypeCounts[type] += stat.count;
+      }
     });
 
     return {
@@ -65,7 +75,7 @@ export class DashboardService {
         totalCertificates,
         totalEvents,
         todaysCertificates,
-        certificateTypes: certificateTypes.length,
+        certificateTypes: overallTypeCounts,
       },
       events: events.map(event => ({
         id: event._id,

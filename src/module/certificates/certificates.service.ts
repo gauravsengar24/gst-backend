@@ -294,6 +294,15 @@ export class CertificatesService {
       if (certObj.eventId && eventMap.has(certObj.eventId)) {
         (certObj as any).eventName = eventMap.get(certObj.eventId);
       }
+      
+      if (certObj.candidates && Array.isArray(certObj.candidates)) {
+        certObj.candidates.sort((a: any, b: any) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : (a._id ? parseInt(a._id.toString().substring(0, 8), 16) * 1000 : 0);
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : (b._id ? parseInt(b._id.toString().substring(0, 8), 16) * 1000 : 0);
+          return dateB - dateA; // Sort descending (latest first)
+        });
+      }
+      
       return certObj;
     });
 
@@ -415,24 +424,55 @@ export class CertificatesService {
     return doc;
   }
 
-  async getLocalCertificatePath(candidateId: string) {
-    const certificate = await this.certificateModel.findOne({
-      'candidates._id': candidateId
+  async getLocalCertificatePath(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid ID format');
+    }
+
+    let certificate = await this.certificateModel.findOne({
+      'candidates._id': id
     }).exec();
 
-    if (!certificate) {
+    console.log(certificate);
+
+    let candidate: any;
+
+    if (certificate) {
+      candidate = certificate.candidates?.find(c => (c as any)._id.toString() === id);
+    } else {
+      // Try treating the id as a certificate ID and download the first candidate
+      certificate = await this.certificateModel.findById(id).exec();
+      if (certificate && certificate.candidates && certificate.candidates.length > 0) {
+        candidate = certificate.candidates[0];
+      }
+    }
+
+    if (!certificate || !candidate) {
       throw new NotFoundException('Candidate or Certificate not found');
     }
 
-    const candidate = certificate.candidates?.find(c => (c as any)._id.toString() === candidateId);
-    
-    if (!candidate || !candidate.localImagePath) {
-      throw new NotFoundException('Local certificate image not found for this candidate');
-    }
+    let fullPath = candidate.localImagePath ? path.join(process.cwd(), candidate.localImagePath) : null;
 
-    const fullPath = path.join(process.cwd(), candidate.localImagePath);
-    if (!fs.existsSync(fullPath)) {
-      throw new NotFoundException('Certificate file not found on disk');
+    if (!fullPath || !fs.existsSync(fullPath)) {
+      // The file doesn't exist, we need to re-generate it
+      let baseImagePath: string | undefined;
+      if (certificate.eventId && Types.ObjectId.isValid(certificate.eventId.toString())) {
+        const event = await this.eventModel.findById(certificate.eventId).exec();
+        if (event && event.baseCertificatePath) {
+          baseImagePath = event.baseCertificatePath;
+        }
+      }
+
+      const imageBuffer = await this.metadataService.generateCertificateImage(candidate.name, baseImagePath);
+      const newLocalImagePath = await this.saveCertificateImage(certificate._id.toString(), candidate.name, imageBuffer);
+      
+      // Update the database with the new path
+      await this.certificateModel.findOneAndUpdate(
+        { 'candidates._id': candidate._id },
+        { $set: { 'candidates.$.localImagePath': newLocalImagePath } }
+      ).exec();
+
+      fullPath = path.join(process.cwd(), newLocalImagePath);
     }
 
     return fullPath;
