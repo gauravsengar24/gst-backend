@@ -70,6 +70,9 @@ export class DashboardService {
       }
     });
 
+
+    const eventMap = new Map(events.map(e => [e._id.toString(), e.name]));
+
     return {
       stats: {
         totalCertificates,
@@ -87,14 +90,19 @@ export class DashboardService {
         typeCounts: eventTypeCounts[event._id.toString()] || {}
       })),
       recentActivity: {
-        data: recentActivity.map(cert => ({
-          id: cert._id,
-          title: cert.title,
-          date: cert.issuedAt,
-          organization: cert.issuingAuthority,
-          description: cert.description,
-          type: cert.candidates?.[0]?.type || 'N/A'
-        })),
+        data: recentActivity.map(cert => {
+          const certObj = cert.toObject();
+          const eventIdStr = certObj.eventId?.toString();
+          return {
+            id: certObj._id,
+            title: certObj.title,
+            date: certObj.issuedAt,
+            organization: certObj.issuingAuthority,
+            description: certObj.description,
+            type: certObj.candidates?.[0]?.type || 'N/A',
+            eventName: (eventIdStr && eventMap.has(eventIdStr)) ? eventMap.get(eventIdStr) : 'N/A'
+          };
+        }),
         pagination: {
           total: totalCertificates,
           page,

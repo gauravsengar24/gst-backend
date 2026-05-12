@@ -170,7 +170,7 @@ export class CertificatesService {
           ipfsHash: ipfsData.imageHash,
           metadataUrl: ipfsData.metadataUrl,
           tokenId: txHash ? tokenId : undefined,
-          transactionHash: txHash ? `https://www.testnet.mstscan.com/tx/${txHash}` : undefined,
+          transactionHash: txHash ? `https://testnet.mstscan.com/tx/${txHash}` : undefined,
         };
 
         updatedCandidates.push(mintedCandidate);
@@ -291,8 +291,9 @@ export class CertificatesService {
 
     const resultData = data.map(cert => {
       const certObj = cert.toObject();
-      if (certObj.eventId && eventMap.has(certObj.eventId)) {
-        (certObj as any).eventName = eventMap.get(certObj.eventId);
+      const eventIdStr = certObj.eventId?.toString();
+      if (eventIdStr && eventMap.has(eventIdStr)) {
+        (certObj as any).eventName = eventMap.get(eventIdStr);
       }
       
       if (certObj.candidates && Array.isArray(certObj.candidates)) {
@@ -596,7 +597,7 @@ export class CertificatesService {
         // assign txHash and pseudo tokenId
         processedData.forEach(c => {
           if (c.walletAddress) {
-            (c as any).transactionHash = `https://www.testnet.mstscan.com/tx/${txHash}`;
+            (c as any).transactionHash = `https://testnet.mstscan.com/tx/${txHash}`;
             (c as any).tokenId = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000);
           }
         });
