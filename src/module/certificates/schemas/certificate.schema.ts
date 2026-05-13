@@ -69,6 +69,10 @@ export class Certificate {
   @Prop({ type: Date, default: Date.now })
   issuedAt!: Date;
 
+  @ApiProperty({ example: 'Beginner' })
+  @Prop()
+  level?: string;
+
   @ApiProperty({ example: 'Advanced workshop' })
   @Prop()
   description?: string;
@@ -84,6 +88,10 @@ export class Certificate {
   @ApiProperty({ required: false })
   @Prop()
   metadataUrl?: string;
+
+  @ApiProperty({ example: '0xabc...' })
+  @Prop()
+  creator?: string;
 
   @ApiProperty({ type: 'array', items: { type: 'object' } })
   @Prop({ type: [CandidateSchema] })

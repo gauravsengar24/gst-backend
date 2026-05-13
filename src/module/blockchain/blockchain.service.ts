@@ -30,6 +30,7 @@ export class BlockchainService implements OnModuleInit {
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
     this.wallet = new ethers.Wallet(privateKey, this.provider);
     this.contract = new ethers.Contract(contractAddress, this.ABI, this.wallet);
+    console.log(`Blockchain wallet initialized: ${this.wallet.address}`);
   }
 
   async mintCertificate(to: string, tokenId: number, tokenURI: string) {
@@ -86,5 +87,9 @@ export class BlockchainService implements OnModuleInit {
       console.error('Failed to fetch/decode transaction:', error);
       return null;
     }
+  }
+
+  getMinterAddress(): string | undefined {
+    return this.wallet ? this.wallet.address : undefined;
   }
 }

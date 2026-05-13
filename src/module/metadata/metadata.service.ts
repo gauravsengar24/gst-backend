@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import axios from 'axios';
 import * as FormData from 'form-data';
+import { BlockchainService } from '../blockchain/blockchain.service';
 
 @Injectable()
 export class MetadataService {
@@ -16,6 +17,7 @@ export class MetadataService {
   constructor(
     private configService: ConfigService,
     @InjectModel(Certificate.name) private certificateModel: Model<CertificateDocument>,
+    private blockchainService: BlockchainService,
   ) { }
 
   /**
@@ -65,6 +67,7 @@ export class MetadataService {
     issuedBy: string;
     title: string;
     type: string;
+    level?: string;
     imageBuffer: Buffer;
     walletAddress?: string;
     transactionHash?: string;
@@ -90,6 +93,7 @@ export class MetadataService {
           { trait_type: 'Date', value: data.date },
           { trait_type: 'Certificate Title', value: data.title },
           { trait_type: 'Certificate Type', value: data.type },
+          { trait_type: 'Level', value: data.level || 'N/A' },
         ],
       },
       pinataMetadata: { name: `metadata_${data.name.replace(/\s+/g, '_')}.json` },
@@ -103,6 +107,7 @@ export class MetadataService {
         title: data.title,
         issuingAuthority: data.issuedBy,
         description: data.description,
+        level: data.level,
         issuedAt: new Date(data.date),
         ipfsHash: imageHash,
         metadataUrl: `ipfs://${metadataResponse.IpfsHash}`,
@@ -114,7 +119,8 @@ export class MetadataService {
           localImagePath: '',
           ipfsHash: imageHash,
           metadataUrl: `ipfs://${metadataResponse.IpfsHash}`
-        }]
+        }],
+        creator: this.blockchainService.getMinterAddress()
       });
     }
 

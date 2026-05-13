@@ -32,6 +32,10 @@ export class UploadMetadataDto {
   @IsString()
   type!: string;
 
+  @ApiProperty({ example: 'Intermediate' })
+  @IsString()
+  level?: string;
+
   @ApiProperty({ example: '0x123...', required: true })
   @IsNotEmpty()
   @IsString()

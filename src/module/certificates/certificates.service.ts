@@ -51,9 +51,18 @@ export class CertificatesService {
           
           await this.certificateModel.findByIdAndUpdate(
             existingCertificate._id,
-            { $push: { candidates: { $each: updatedCandidates } } },
-            { new: true }
+            { 
+              $push: { candidates: { $each: updatedCandidates } },
+              $setOnInsert: { creator: this.blockchainService.getMinterAddress() }
+            },
+            { new: true, upsert: false }
           ).exec();
+
+          if (!existingCertificate.creator) {
+            await this.certificateModel.findByIdAndUpdate(existingCertificate._id, {
+              $set: { creator: this.blockchainService.getMinterAddress() }
+            });
+          }
 
           return this.uploadToIpfs(existingCertificate._id.toString(), mintType);
         }
@@ -65,7 +74,8 @@ export class CertificatesService {
       ...rest,
       description,
       issuingAuthority,
-      candidates
+      candidates,
+      creator: this.blockchainService.getMinterAddress()
     });
     
     const savedCertificate = await createdCertificate.save();

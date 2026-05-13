@@ -100,7 +100,9 @@ export class DashboardService {
             organization: certObj.issuingAuthority,
             description: certObj.description,
             type: certObj.candidates?.[0]?.type || 'N/A',
-            eventName: (eventIdStr && eventMap.has(eventIdStr)) ? eventMap.get(eventIdStr) : 'N/A'
+            level: certObj.level,
+            eventName: (eventIdStr && eventMap.has(eventIdStr)) ? eventMap.get(eventIdStr) : 'N/A',
+            creator: certObj.creator
           };
         }),
         pagination: {
