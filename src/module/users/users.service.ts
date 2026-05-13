@@ -3,12 +3,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Certificate, CertificateDocument } from '../certificates/schemas/certificate.schema';
 import { Event, EventDocument } from '../events/schemas/event.schema';
+import { BlockchainService } from '../blockchain/blockchain.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(Certificate.name) private certificateModel: Model<CertificateDocument>,
     @InjectModel(Event.name) private eventModel: Model<EventDocument>,
+    private blockchainService: BlockchainService,
   ) {}
 
   async getCertificatesByWallet(walletAddress: string) {
@@ -44,16 +46,42 @@ export class UsersService {
     if (txUrl.includes('/tx/')) {
       queryHash = txUrl.split('/tx/').pop() || txUrl;
     }
-    const certificate = await this.certificateModel.findOne({
+
+    const blockchainRecipient = await this.blockchainService.getTransactionRecipient(queryHash);
+
+    const dbQuery: any = {
       'candidates.transactionHash': { $regex: new RegExp(queryHash, 'i') }
-    }).exec();
+    };
+
+    if (blockchainRecipient) {
+      if (Array.isArray(blockchainRecipient)) {
+        dbQuery['candidates.walletAddress'] = { 
+          $in: blockchainRecipient.map(addr => new RegExp(`^${addr}$`, 'i')) 
+        };
+      } else {
+        dbQuery['candidates.walletAddress'] = { $regex: new RegExp(`^${blockchainRecipient}$`, 'i') };
+      }
+    }
+
+    const certificate = await this.certificateModel.findOne(dbQuery).exec();
 
     if (!certificate) {
       return null;
     }
 
     const candidateData = certificate.candidates?.find(
-      c => c.transactionHash && c.transactionHash.toLowerCase().includes(queryHash.toLowerCase())
+      c => {
+        const hashMatch = c.transactionHash && c.transactionHash.toLowerCase().includes(queryHash.toLowerCase());
+        let walletMatch = true;
+        if (blockchainRecipient) {
+          if (Array.isArray(blockchainRecipient)) {
+            walletMatch = blockchainRecipient.some(addr => addr.toLowerCase() === c.walletAddress.toLowerCase());
+          } else {
+            walletMatch = blockchainRecipient.toLowerCase() === c.walletAddress.toLowerCase();
+          }
+        }
+        return hashMatch && walletMatch;
+      }
     );
 
     let eventName = 'N/A';

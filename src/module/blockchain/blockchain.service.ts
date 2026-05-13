@@ -66,4 +66,25 @@ export class BlockchainService implements OnModuleInit {
       throw error;
     }
   }
+
+  async getTransactionRecipient(hash: string): Promise<string | string[] | null> {
+    if (!this.provider || !this.contract) return null;
+    try {
+      const tx = await this.provider.getTransaction(hash);
+      if (!tx || !tx.data) return null;
+      
+      const decoded = this.contract.interface.parseTransaction({ data: tx.data });
+      if (!decoded) return null;
+
+      if (decoded.name === 'safeMint') {
+        return decoded.args[0];
+      } else if (decoded.name === 'bulkMint') {
+        return decoded.args[0];
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch/decode transaction:', error);
+      return null;
+    }
+  }
 }
