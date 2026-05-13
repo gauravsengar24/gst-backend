@@ -34,6 +34,8 @@ export class UsersService {
         issuingAuthority: certObj.issuingAuthority,
         issuedAt: certObj.issuedAt,
         description: certObj.description,
+        level: certObj.level,
+        creator: certObj.creator,
         eventId: certObj.eventId,
         eventName: (certObj.eventId && eventMap.has(certObj.eventId.toString())) ? eventMap.get(certObj.eventId.toString()) : 'N/A',
         candidate: candidateData ? this.formatCandidate(candidateData) : null
@@ -96,6 +98,8 @@ export class UsersService {
       issuingAuthority: certificate.issuingAuthority,
       issuedAt: certificate.issuedAt,
       description: certificate.description,
+      level: certificate.level,
+      creator: certificate.creator,
       eventId: certificate.eventId,
       eventName,
       candidate: candidateData ? this.formatCandidate(candidateData) : null
