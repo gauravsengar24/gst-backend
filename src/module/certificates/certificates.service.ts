@@ -329,10 +329,10 @@ export class CertificatesService {
   }
 
   async findOne(id: string) {
-    const certificate = await this.certificateModel.findOne({ 'candidates._id': id }).exec();
+    const certificate = await this.certificateModel.findOne({ '_id': id }).exec();
 
     if (!certificate) {
-      throw new NotFoundException(`Certificate with candidate id ${id} not found`);
+      throw new NotFoundException(`Certificate with id ${id} not found`);
     }
 
     const certObj = certificate.toObject();
