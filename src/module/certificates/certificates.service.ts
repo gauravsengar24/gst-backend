@@ -43,32 +43,32 @@ export class CertificatesService {
       }
     }
     
-    if (rest.eventId) {
-      const existingCertificate = await this.certificateModel.findOne({ eventId: rest.eventId }).exec();
-      if (existingCertificate) {
-        if (candidates.length > 0) {
-          const updatedCandidates = await this.generateLocalImages(existingCertificate, candidates);
+    // if (rest.eventId) {
+    //   const existingCertificate = await this.certificateModel.findOne({ eventId: rest.eventId }).exec();
+    //   if (existingCertificate) {
+    //     if (candidates.length > 0) {
+    //       const updatedCandidates = await this.generateLocalImages(existingCertificate, candidates);
           
-          await this.certificateModel.findByIdAndUpdate(
-            existingCertificate._id,
-            { 
-              $push: { candidates: { $each: updatedCandidates } },
-              $setOnInsert: { creator: this.blockchainService.getMinterAddress() }
-            },
-            { new: true, upsert: false }
-          ).exec();
+    //       await this.certificateModel.findByIdAndUpdate(
+    //         existingCertificate._id,
+    //         { 
+    //           $push: { candidates: { $each: updatedCandidates } },
+    //           $setOnInsert: { creator: this.blockchainService.getMinterAddress() }
+    //         },
+    //         { new: true, upsert: false }
+    //       ).exec();
 
-          if (!existingCertificate.creator) {
-            await this.certificateModel.findByIdAndUpdate(existingCertificate._id, {
-              $set: { creator: this.blockchainService.getMinterAddress() }
-            });
-          }
+    //       if (!existingCertificate.creator) {
+    //         await this.certificateModel.findByIdAndUpdate(existingCertificate._id, {
+    //           $set: { creator: this.blockchainService.getMinterAddress() }
+    //         });
+    //       }
 
-          return this.uploadToIpfs(existingCertificate._id.toString(), mintType);
-        }
-        return existingCertificate;
-      }
-    }
+    //       return this.uploadToIpfs(existingCertificate._id.toString(), mintType);
+    //     }
+    //     return existingCertificate;
+    //   }
+    // }
 
     const createdCertificate = new this.certificateModel({
       ...rest,
