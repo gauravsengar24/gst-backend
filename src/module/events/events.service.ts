@@ -79,25 +79,37 @@ export class EventsService {
     ]);
 
     const eventIds = data.map(e => e._id.toString());
-    const certificates = await this.certificateModel.find({ eventId: { $in: eventIds } }, '_id eventId candidates').exec();
+    const certificates = await this.certificateModel.find({ eventId: { $in: eventIds } }).exec();
     
-    const certsByEvent = new Map<string, { ids: string[], count: number }>();
+    const certsByEvent = new Map<string, { certs: any[], count: number }>();
     for (const cert of certificates) {
       if (!cert.eventId) continue;
       if (!certsByEvent.has(cert.eventId)) {
-        certsByEvent.set(cert.eventId, { ids: [], count: 0 });
+        certsByEvent.set(cert.eventId, { certs: [], count: 0 });
       }
       const eventData = certsByEvent.get(cert.eventId)!;
+      
       if (cert.candidates && Array.isArray(cert.candidates)) {
         eventData.count += cert.candidates.length;
-        eventData.ids.push(...cert.candidates.map((c: any) => c._id?.toString()).filter(Boolean));
       }
+
+      const certObj = cert.toObject();
+      delete certObj.candidates;
+      
+      eventData.certs.push(certObj);
     }
 
     const resultData = data.map(event => {
       const eventObj = event.toObject();
       const certData = certsByEvent.get(event._id.toString());
-      (eventObj as any).candidateIds = certData?.ids || [];
+      
+      const eventCerts = certData?.certs || [];
+      eventCerts.forEach(c => {
+        c.eventName = eventObj.name;
+        c.eventLocation = eventObj.place;
+      });
+
+      (eventObj as any).certificates = eventCerts;
       (eventObj as any).totalCertificates = certData?.count || 0;
       return eventObj;
     });
@@ -120,18 +132,25 @@ export class EventsService {
       throw new NotFoundException(`Event with id ${id} not found`);
     }
 
-    const certificates = await this.certificateModel.find({ eventId: id }, '_id candidates').exec();
+    const certificates = await this.certificateModel.find({ eventId: id }).exec();
     const eventObj = event.toObject();
-    const candidateIds: string[] = [];
     let count = 0;
+    
+    const eventCerts: any[] = [];
     for (const cert of certificates) {
       if (cert.candidates && Array.isArray(cert.candidates)) {
         count += cert.candidates.length;
-        candidateIds.push(...cert.candidates.map((c: any) => c._id?.toString()).filter(Boolean));
       }
+      
+      const certObj = cert.toObject() as any;
+      delete certObj.candidates;
+      certObj.eventName = eventObj.name;
+      certObj.eventLocation = eventObj.place;
+      
+      eventCerts.push(certObj);
     }
     
-    (eventObj as any).candidateIds = candidateIds;
+    (eventObj as any).certificates = eventCerts;
     (eventObj as any).totalCertificates = count;
 
     return eventObj;
