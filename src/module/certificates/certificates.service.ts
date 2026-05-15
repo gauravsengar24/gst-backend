@@ -279,16 +279,23 @@ export class CertificatesService {
     const query: any = {};
 
     if (search) {
+      const events = await this.eventModel.find({ name: { $regex: search, $options: 'i' } }).exec();
+      const eventIds = events.map(e => e._id.toString());
+
       query.$or = [
         { 'candidates.name': { $regex: search, $options: 'i' } },
         { title: { $regex: search, $options: 'i' } },
         { issuingAuthority: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
       ];
+
+      if (eventIds.length > 0) {
+        query.$or.push({ eventId: { $in: eventIds } });
+      }
     }
 
     const [data, total] = await Promise.all([
-      this.certificateModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
+      this.certificateModel.find(query).select('-candidates').sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
       this.certificateModel.countDocuments(query)
     ]);
 
@@ -296,23 +303,19 @@ export class CertificatesService {
     let eventMap = new Map();
     if (eventIds.length > 0) {
       const events = await this.eventModel.find({ _id: { $in: eventIds } }).exec();
-      eventMap = new Map(events.map(e => [e._id.toString(), e.name]));
+      eventMap = new Map(events.map(e => [e._id.toString(), { name: e.name, location: e.place }]));
     }
 
     const resultData = data.map(cert => {
       const certObj = cert.toObject();
       const eventIdStr = certObj.eventId?.toString();
       if (eventIdStr && eventMap.has(eventIdStr)) {
-        (certObj as any).eventName = eventMap.get(eventIdStr);
+        const eventData = eventMap.get(eventIdStr);
+        (certObj as any).eventName = eventData.name;
+        (certObj as any).eventLocation = eventData.location;
       }
       
-      if (certObj.candidates && Array.isArray(certObj.candidates)) {
-        certObj.candidates.sort((a: any, b: any) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : (a._id ? parseInt(a._id.toString().substring(0, 8), 16) * 1000 : 0);
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : (b._id ? parseInt(b._id.toString().substring(0, 8), 16) * 1000 : 0);
-          return dateB - dateA; // Sort descending (latest first)
-        });
-      }
+
       
       return certObj;
     });
@@ -329,7 +332,7 @@ export class CertificatesService {
   }
 
   async findOne(id: string) {
-    const certificate = await this.certificateModel.findOne({ '_id': id }).exec();
+    const certificate = await this.certificateModel.findOne({ '_id': id }).select('-candidates').exec();
 
     if (!certificate) {
       throw new NotFoundException(`Certificate with id ${id} not found`);
@@ -340,6 +343,7 @@ export class CertificatesService {
       const event = await this.eventModel.findById(certObj.eventId).exec();
       if (event) {
         (certObj as any).eventName = event.name;
+        (certObj as any).eventLocation = event.place;
       }
     }
 

@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth, ApiExcludeEndpoint, ApiQuery } from '@nestjs/swagger';
 import { CandidatesService } from './candidates.service';
 import { CreateCandidateDto } from './dto/create-candidate.dto';
 import { UpdateCandidateDto } from './dto/update-candidate.dto';
@@ -32,14 +32,22 @@ export class CandidatesController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get candidate by ID' })
-  @ApiParam({ name: 'id', type: 'string', description: 'Candidate ID' })
-  @ApiResponse({ status: 200, description: 'Candidate found' })
-  @ApiResponse({ status: 404, description: 'Candidate not found' })
+  @ApiOperation({ summary: 'Get candidates by certificate ID' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Certificate ID' })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number', example: '1' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: '10' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search keyword' })
+  @ApiResponse({ status: 200, description: 'List of candidates' })
+  @ApiResponse({ status: 404, description: 'Certificate not found' })
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
-  findOne(@Param('id') id: string) {
-    return this.candidatesService.findOne(id);
+  findOne(
+    @Param('id') id: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('search') search?: string
+  ) {
+    return this.candidatesService.findOne(id, parseInt(page), parseInt(limit), search);
   }
 
   @ApiExcludeEndpoint()

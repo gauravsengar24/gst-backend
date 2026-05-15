@@ -22,25 +22,31 @@ export class UsersService {
     const events = await this.eventModel.find({ _id: { $in: eventIds } }).exec();
     const eventMap = new Map(events.map(e => [e._id.toString(), e.name]));
 
-    return certificates.map(cert => {
-      const certObj = cert.toObject();
-      const candidateData = certObj.candidates?.find(
-        (c: any) => c.walletAddress.toLowerCase() === walletAddress.toLowerCase()
-      );
+    const result: any[] = [];
 
-      return {
-        _id: certObj._id,
-        title: certObj.title,
-        issuingAuthority: certObj.issuingAuthority,
-        issuedAt: certObj.issuedAt,
-        description: certObj.description,
-        level: certObj.level,
-        creator: certObj.creator,
-        eventId: certObj.eventId,
-        eventName: (certObj.eventId && eventMap.has(certObj.eventId.toString())) ? eventMap.get(certObj.eventId.toString()) : 'N/A',
-        candidate: candidateData ? this.formatCandidate(candidateData) : null
-      };
+    certificates.forEach(cert => {
+      const certObj = cert.toObject();
+      const matchingCandidates = certObj.candidates?.filter(
+        (c: any) => c.walletAddress.toLowerCase() === walletAddress.toLowerCase()
+      ) || [];
+
+      matchingCandidates.forEach((candidate: any) => {
+        result.push({
+          _id: certObj._id,
+          title: certObj.title,
+          issuingAuthority: certObj.issuingAuthority,
+          issuedAt: certObj.issuedAt,
+          description: certObj.description,
+          level: certObj.level,
+          creator: certObj.creator,
+          eventId: certObj.eventId,
+          eventName: (certObj.eventId && eventMap.has(certObj.eventId.toString())) ? eventMap.get(certObj.eventId.toString()) : 'N/A',
+          candidate: this.formatCandidate(candidate)
+        });
+      });
     });
+
+    return result;
   }
 
   async getCertificateByTx(txUrl: string) {

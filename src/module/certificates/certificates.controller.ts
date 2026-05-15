@@ -11,7 +11,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 @ApiTags('Certificates')
 @Controller('certificates')
 export class CertificatesController {
-  constructor(private readonly certificatesService: CertificatesService) {}
+  constructor(private readonly certificatesService: CertificatesService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new certificate with optional candidates' })
@@ -23,7 +23,7 @@ export class CertificatesController {
   create(@Body() createCertificateDto: CreateCertificateDto) {
     return this.certificatesService.create(createCertificateDto);
   }
-  
+
   @Post('bulk-upload')
   @ApiOperation({ summary: 'Create a new certificate and upload candidates via CSV' })
   @UseInterceptors(FileInterceptor('file'))
