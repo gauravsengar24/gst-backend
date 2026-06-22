@@ -43,6 +43,7 @@ A NestJS-based backend API for managing digital certificates, events, and user a
    ```
    MONGODB_URI=mongodb://localhost:27017/certificates
    JWT_SECRET=your-secret-key
+   PORT=3000
    ```
 
 4. Start the development server:

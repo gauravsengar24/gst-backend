@@ -9,6 +9,9 @@ export class Certificate {
   recipientName!: string;
 
   @Prop({ required: true })
+  type!: string;
+
+  @Prop({ required: true })
   title!: string;
 
   @Prop({ required: true })

@@ -1,26 +1,27 @@
-import { Injectable } from '@nestjs/common';
-// import { CreateAdminDto } from './dto/create-admin.dto';
-// import { UpdateAdminDto } from './dto/update-admin.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { User, UserDocument } from '../auth/schemas/user.schema';
 
 @Injectable()
 export class AdminService {
-  // create(createAdminDto: CreateAdminDto) {
-  //   return 'This action adds a new admin';
-  // }
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+  ) {}
 
   findAll() {
-    return `This action returns all admin`;
+    return this.userModel.find({ role: 'admin' }).select('-password').exec();
   }
 
-  findOne(id: string) {
-    return `This action returns a #${id} admin`;
+  async findOne(id: string) {
+    const user = await this.userModel.findById(id).select('-password').exec();
+    if (!user) throw new NotFoundException('Admin not found');
+    return user;
   }
 
-  // update(id: string, updateAdminDto: UpdateAdminDto) {
-  //   return `This action updates a #${id} admin`;
-  // }
-
-  remove(id: string) {
-    return `This action removes a #${id} admin`;
+  async remove(id: string) {
+    const user = await this.userModel.findByIdAndDelete(id).exec();
+    if (!user) throw new NotFoundException('Admin not found');
+    return user;
   }
 }
